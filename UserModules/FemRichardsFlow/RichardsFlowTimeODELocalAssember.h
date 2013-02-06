@@ -1,3 +1,24 @@
+
+/**
+ * Copyright (c) 2012, OpenGeoSys Community (http://www.opengeosys.com)
+ *            Distributed under a Modified BSD License.
+ *              See accompanying file LICENSE.txt or
+ *              http://www.opengeosys.com/LICENSE.txt
+ *
+ *
+ * \file RichardsFlowTimeODELocalAssembler.h
+ *
+ * Created on 2013-02-01 by Haibing Shao and Thomas Kalbacher
+ */
+
+#pragma once
+
+#include "FemLib/Core/Element/IFemElement.h"
+#include "NumLib/TransientAssembler/IElementWiseTimeODELocalAssembler.h"
+#include "MaterialLib/PorousMedia.h"
+#include "MaterialLib/Fluid.h"
+#include "Ogs6FemData.h"
+
 /**
     * \brief Local assembly of time ODE components for RichardsFlow in porous media
     */
@@ -26,7 +47,8 @@ protected:
         // get pointer to corresponding fluid (water) class
         MaterialLib::Fluid* fluid = Ogs6FemData::getInstance()->list_fluid[0];
         // whether include gravity
-        const bool hasGravityEffect = _problem_coordinates.hasZ();
+        //const bool hasGravityEffect = _problem_coordinates.hasZ(); //3D
+		const bool hasGravityEffect = true; // only required for 2D TK 06.02.2013 //TODO: should be _problem_coordinates.hasY() == true or something like that
 
         MathLib::LocalMatrix mass_mat_coeff    = MathLib::LocalMatrix::Zero(1,1);  // coefficient of mass matrix
         MathLib::LocalMatrix Pw                = MathLib::LocalMatrix::Zero(1,1);  // water pressure 
@@ -45,7 +67,8 @@ protected:
 
         // if there is gravity, set up a gravity vector
         if (hasGravityEffect) {
-            vec_g[_problem_coordinates.getIndexOfY()] = -9.81;
+            vec_g[_problem_coordinates.getIndexOfY()] = -9.81; // only required for 2D TK 06.02.2013
+			//vec_g[_problem_coordinates.getIndexOfZ()] = -9.81; // 3D
         }
         FemLib::IFemNumericalIntegration *q = fe->getIntegrationMethod();
         double gp_x[3], real_x[3];
@@ -96,7 +119,11 @@ protected:
                 // since no primary vairable involved
                 // directly assemble to the Right-Hand-Side
                 // F += dNp^T * K * rho * gz
-                localF.noalias() += dNp.transpose() * local_k_mu * rho_w * vec_g;
+                //localF.noalias() += dNp.transpose() * local_k_mu * rho_w * vec_g;
+                // F += dNp^T * K * gz
+                localF.noalias() += dNp.transpose() * local_k_mu * vec_g; // TK 06.02.2013 rho removed
+
+
             } // end of if hasGravityEffect
         } // end of for GP
     }  // end of assemble ODE
