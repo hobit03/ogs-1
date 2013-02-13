@@ -1,24 +1,3 @@
-
-/**
- * Copyright (c) 2012, OpenGeoSys Community (http://www.opengeosys.com)
- *            Distributed under a Modified BSD License.
- *              See accompanying file LICENSE.txt or
- *              http://www.opengeosys.com/LICENSE.txt
- *
- *
- * \file RichardsFlowTimeODELocalAssembler.h
- *
- * Created on 2013-02-01 by Haibing Shao and Thomas Kalbacher
- */
-
-#pragma once
-
-#include "FemLib/Core/Element/IFemElement.h"
-#include "NumLib/TransientAssembler/IElementWiseTimeODELocalAssembler.h"
-#include "MaterialLib/PorousMedia.h"
-#include "MaterialLib/Fluid.h"
-#include "Ogs6FemData.h"
-
 /**
     * \brief Local assembly of time ODE components for RichardsFlow in porous media
     */
@@ -47,8 +26,8 @@ protected:
         // get pointer to corresponding fluid (water) class
         MaterialLib::Fluid* fluid = Ogs6FemData::getInstance()->list_fluid[0];
         // whether include gravity
-        //const bool hasGravityEffect = _problem_coordinates.hasZ(); //3D
-		const bool hasGravityEffect = true; // only required for 2D TK 06.02.2013 //TODO: should be _problem_coordinates.hasY() == true or something like that
+        // const bool hasGravityEffect = _problem_coordinates.hasZ();
+        const bool hasGravityEffect = true;
 
         MathLib::LocalMatrix mass_mat_coeff    = MathLib::LocalMatrix::Zero(1,1);  // coefficient of mass matrix
         MathLib::LocalMatrix Pw                = MathLib::LocalMatrix::Zero(1,1);  // water pressure 
@@ -64,11 +43,11 @@ protected:
         double k        = 0.0;  // intrinsic permeability
         double k_rel    = 0.0;  // relative permeability
         double mu       = 0.0;  // dynamic viscosity of water
+		double geo_area = 1.0;
 
         // if there is gravity, set up a gravity vector
         if (hasGravityEffect) {
-            vec_g[_problem_coordinates.getIndexOfY()] = -9.81; // only required for 2D TK 06.02.2013
-			//vec_g[_problem_coordinates.getIndexOfZ()] = -9.81; // 3D
+            vec_g[_problem_coordinates.getIndexOfY()] = -9.81;
         }
         FemLib::IFemNumericalIntegration *q = fe->getIntegrationMethod();
         double gp_x[3], real_x[3];
@@ -80,6 +59,8 @@ protected:
             MathLib::LocalMatrix &Np  = *fe->getBasisFunction(); // get basis function
             MathLib::LocalMatrix &dNp = *fe->getGradBasisFunction(); // get gradient basis function
             local_k_mu = MathLib::LocalMatrix::Identity(e.getDimension(), e.getDimension());
+	        pm->geo_area->eval(gp_pos, geo_area);
+			double fac = geo_area * fe->getDetJ() * q->getWeight(j);
 
             // geting variables and parameters
             // get porosity
@@ -109,7 +90,7 @@ protected:
             mass_mat_coeff(0,0) = storage * Sw + poro * Sw * drhow_dp - poro * dSwdPc; 
             // multiply shape shape 
             fe->integrateWxN(j, mass_mat_coeff, localM);
-            
+			            
             // calculate laplace matrix coefficient
             local_k_mu *= k * k_rel / mu; 
             // multiply dshape dshape
@@ -118,14 +99,21 @@ protected:
             if (hasGravityEffect) { 
                 // since no primary vairable involved
                 // directly assemble to the Right-Hand-Side
-                // F += dNp^T * K * rho * gz
-                //localF.noalias() += dNp.transpose() * local_k_mu * rho_w * vec_g;
                 // F += dNp^T * K * gz
-                localF.noalias() += dNp.transpose() * local_k_mu * vec_g; // TK 06.02.2013 rho removed
-
-
+                localF.noalias() += fac * dNp.transpose() * local_k_mu  * rho_w *vec_g;
             } // end of if hasGravityEffect
         } // end of for GP
+
+            // testing mass lumping----------------------------
+            for (size_t idx_ml=0; idx_ml < localM.cols(); idx_ml++ )
+            {
+                double mass_lump_val;
+                mass_lump_val = localM.col(idx_ml).sum();
+                localM.col(idx_ml).setZero(); 
+                localM(idx_ml, idx_ml) = mass_lump_val; 
+            }
+            // end of testing mass lumping---------------------
+
     }  // end of assemble ODE
 
 
