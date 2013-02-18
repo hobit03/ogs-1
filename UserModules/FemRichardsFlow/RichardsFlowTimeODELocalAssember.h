@@ -46,11 +46,16 @@ protected:
 		double geo_area = 1.0;
 
         // if there is gravity, set up a gravity vector
+		//TODO: must be checked if this has an effect
         if (hasGravityEffect) {
+	        vec_g = MathLib::LocalVector::Zero(_problem_coordinates.getDimension());
             vec_g[_problem_coordinates.getIndexOfY()] = -9.81;
         }
+
+
         FemLib::IFemNumericalIntegration *q = fe->getIntegrationMethod();
         double gp_x[3], real_x[3];
+
         for (size_t j=0; j<q->getNumberOfSamplingPoints(); j++) {
             q->getSamplingPoint(j, gp_x);
             fe->computeBasisFunctions(gp_x);
@@ -61,7 +66,7 @@ protected:
             local_k_mu = MathLib::LocalMatrix::Identity(e.getDimension(), e.getDimension());
 	        pm->geo_area->eval(gp_pos, geo_area);
 			double fac = geo_area * fe->getDetJ() * q->getWeight(j);
-
+					
             // geting variables and parameters
             // get porosity
             pm->porosity->eval(gp_pos, poro);
@@ -73,6 +78,9 @@ protected:
             Pc = -1.0 * Pw(0,0); 
             // get water saturation using pw
             Sw = pm->getSwbyPc(Pc);
+			//Sw = (-0.228*log(Pc))+ 2.7322;
+			//if (Sw > 1.0) Sw = 1.0;
+			//if (Sw < 0.25) Sw = 0.25;
             // density of water
             fluid->density->eval(gp_pos, rho_w);
             // get drhow_dp
@@ -80,14 +88,30 @@ protected:
             // viscosity of the fluid
             fluid->dynamic_viscosity->eval(gp_pos, mu);
 			// get dSwdPc
-            dSwdPc = pm->getdSwdPc( Pc ); 
-            // get k_rel
+            dSwdPc = pm->getdSwdPc( Pc );
+			///*
+			//Sw = (-0.228*log(Pc+1e-06))+ 2.7322;
+			//if (Sw > 1.0) Sw = 1.0;
+			//if (Sw < 0.25) Sw = 0.25;
+			//double y1 = Sw; 
+			//Sw = (-0.228*log(Pc+1e-06))+ 2.7322;
+			//if (Sw > 1.0) Sw = 1.0;
+			//if (Sw < 0.25) Sw = 0.25;
+			//double y2 = Sw;
+			//dSwdPc = (y2-y1)/((Pc+1e-06)-(Pc-1e-06));*/
+
+			// get k_rel
             k_rel = pm->getKrelbySw(Sw,0 );  // 0 stands for aq. phase
             // get intrinsic permeability
             pm->permeability->eval(gp_pos, k); 
 
+			if (Pc > 23500)
+			{
+				Sw=Sw;
+			}
+
             // calculate mass matrix coefficient
-            mass_mat_coeff(0,0) = storage * Sw + poro * Sw * drhow_dp - poro * dSwdPc; 
+            mass_mat_coeff(0,0) = (storage * Sw) + (poro * Sw * drhow_dp) - (poro * dSwdPc); 
             // multiply shape shape 
             fe->integrateWxN(j, mass_mat_coeff, localM);
 			            
@@ -96,23 +120,26 @@ protected:
             // multiply dshape dshape
             fe->integrateDWxDN(j, local_k_mu, localK);
             // if includes gravity
+
             if (hasGravityEffect) { 
                 // since no primary vairable involved
                 // directly assemble to the Right-Hand-Side
-                // F += dNp^T * K * gz
+                // F += dNp^T * K * g
                 localF.noalias() += fac * dNp.transpose() * local_k_mu  * rho_w *vec_g;
             } // end of if hasGravityEffect
+
         } // end of for GP
 
-            // testing mass lumping----------------------------
-            for (size_t idx_ml=0; idx_ml < localM.cols(); idx_ml++ )
-            {
-                double mass_lump_val;
-                mass_lump_val = localM.col(idx_ml).sum();
-                localM.col(idx_ml).setZero(); 
-                localM(idx_ml, idx_ml) = mass_lump_val; 
-            }
-            // end of testing mass lumping---------------------
+			// testing mass lumping----------------------------
+			for (size_t idx_ml=0; idx_ml < localM.cols(); idx_ml++ )
+			{
+				double mass_lump_val;
+				mass_lump_val = localM.col(idx_ml).sum();
+				localM.col(idx_ml).setZero(); 
+				localM(idx_ml, idx_ml) = mass_lump_val; 
+			}
+			// end of testing mass lumping---------------------
+
 
     }  // end of assemble ODE
 

@@ -129,6 +129,9 @@ void FunctionRichards<T1, T2>::CalculateSaturationValuesForOutput(MyDiscreteSyst
 	 MaterialLib::PorousMedia* pm = Ogs6FemData::getInstance()->list_pm[0];
 	 Pc= -1.0 * _pressure_w->getValue(node_idx);
 	 Sw= pm->getSwbyPc(Pc);
+	 //Sw = (-0.228*log(Pc) )+ 2.7322;
+ 	 // if (Sw > 1.0) Sw = 1.0;
+	 //if (Sw < 0.25) Sw = 0.25;
 	 _saturation_w->setValue(node_idx,Sw);	
 	 }
 };
