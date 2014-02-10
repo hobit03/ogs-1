@@ -17,7 +17,7 @@ GeoSys-IC  Initial Conditions ------------------------------------------------
  $GEO_TYPE
   DOMAIN
  $DIS_TYPE
-  CONSTANT  1.0
+  CONSTANT  0.2
 
 #INITIAL_CONDITION
  $PCS_TYPE
@@ -111,3 +111,26 @@ GeoSys-IC  Initial Conditions ------------------------------------------------
   
 #STOP
 
+
+
+
+#INITIAL_CONDITION
+ $PCS_TYPE
+  REACT_TRANS_OPS
+ $PRIMARY_VARIABLE 
+  CH2O
+ $GEO_TYPE
+  DOMAIN
+ $DIS_TYPE
+  CONSTANT  2.0
+  
+  
+#INITIAL_CONDITION
+ $PCS_TYPE
+  REACT_TRANS_OPS
+ $PRIMARY_VARIABLE 
+  CH2O
+ $GEO_TYPE
+  DOMAIN
+ $DIS_TYPE
+  CONSTANT  0.2
