@@ -184,8 +184,7 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct<T_DIS_SYS, T_USER_FUNCTION_
                                SolutionLib::SolutionVector & residual_global)
 {
     const size_t nnodes = _dis_sys->getMesh()->getNumberOfNodes();
-    const double theta_water_content = 0.5;  //monod
-    //const double theta_water_content = 0.32;  //calcite
+
     size_t j; 
     // current xi global
     MathLib::LocalVector loc_cur_xi_global, loc_cur_xi_Sorp_tilde, loc_cur_xi_Min_tilde,
@@ -287,14 +286,15 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct<T_DIS_SYS, T_USER_FUNCTION_
             	residual_global[_n_xi_global * node_idx + i] = res43[i];
 
             if(_n_xi_Sorp_bar_ld > 0)
-            	res44 = loc_cur_xi_Min_tilde - loc_cur_xi_Min + loc_cur_xi_Min_bar + loc_cur_xi_Sorp_bar_ld;
+            	res44 = loc_cur_xi_Min_tilde - loc_cur_xi_Min + loc_cur_xi_Min_bar + loc_cur_xi_Sorp_bar_ld; // HS: ERROR! MISSING Ald here! 
             else
             	res44 = loc_cur_xi_Min_tilde - loc_cur_xi_Min + loc_cur_xi_Min_bar;
 
             for(std::size_t i = 0; i < _n_xi_Min_tilde; i++)
-            	residual_global[_n_xi_global * node_idx + i] = res44[i];
+				residual_global[_n_xi_global * node_idx + _n_xi_Sorp_tilde + i] = res44[i];
 
-            if(_n_xi_Kin > 0){
+            // if(_n_xi_Kin > 0){
+            if ( _J_tot_kin > 0){
             // calculate the nodal kinetic reaction rates
             _ReductionGIA->Calc_Kin_Rate_temp(loc_cur_xi_Mob,
                                          loc_cur_xi_Sorp,
@@ -313,10 +313,11 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct<T_DIS_SYS, T_USER_FUNCTION_
             for (size_t i=0; i < _J_tot_kin; i++)
                 _global_vec_Rate[i]->setValue(node_idx, vec_Rate[i]);
 
-			// the rate term should not be multiplied with dt.
-            res45 = theta_water_content * mat_Asorp * vec_Rate;
-            res46 = theta_water_content * mat_Amin  * vec_Rate;
-            res47 = theta_water_content * mat_A1kin * vec_Rate;
+			// HS: notice that we do not multiply the theta_water_content here. 
+			// instead, we multiply porosity directly at the assembly function. 
+			res45 = mat_Asorp * vec_Rate;
+			res46 = mat_Amin  * vec_Rate;
+			res47 = mat_A1kin * vec_Rate;
 
 			// HS:first we store them, and the integration of these values
 			// will be done in the assembly part.
@@ -327,7 +328,7 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct<T_DIS_SYS, T_USER_FUNCTION_
 				this->_function_data->get_xi_min_rates()[j]->setValue(node_idx, res46(j));
 			for (j = 0; j < _n_xi_Kin; j++)
 				this->_function_data->get_xi_kin_rates()[j]->setValue(node_idx, res47(j));
-            }
+            } // end of if _J_tot_kin
      
     } // end of loop over all nodes. 
 
@@ -351,7 +352,6 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct
     //MyLinearSolver* linear_solver = this->_non_linear_solution->getLinearEquationSolver();
     MeshLib::IMesh* msh = _dis_sys->getMesh();
     const size_t n_ele = msh->getNumberOfElements();
-    const size_t n_max_connect_nodes = 20; 
     size_t nnodes; 
     double _theta(1.0);
 //    size_t _n_xi_trans = this->_n_xi_Sorp + this->_n_xi_Min + this->_n_xi_Kin;
@@ -391,22 +391,7 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct
     loc_vec_Rate  = MathLib::LocalVector::Zero( _J_tot_kin );
     vec_Rate_temp = MathLib::LocalVector::Zero( _J_tot_kin );
 
-    // initialize the local vector
-    //current xi global
-    loc_cur_xi_global               = MathLib::LocalVector::Zero( _n_xi_global * n_max_connect_nodes );
-    loc_cur_xi_Sorp_tilde           = MathLib::LocalVector::Zero( _n_xi_Sorp_tilde * n_max_connect_nodes  );
-    loc_cur_xi_Min_tilde            = MathLib::LocalVector::Zero( _n_xi_Min_tilde * n_max_connect_nodes  );
-    loc_cur_xi_Sorp                 = MathLib::LocalVector::Zero( _n_xi_Sorp * n_max_connect_nodes );
-    loc_cur_xi_Min                  = MathLib::LocalVector::Zero( _n_xi_Min * n_max_connect_nodes );
-    loc_cur_xi_Kin                  = MathLib::LocalVector::Zero( _n_xi_Kin * n_max_connect_nodes );
-    //previous xi global
-    loc_pre_xi_global               = MathLib::LocalVector::Zero( _n_xi_global * n_max_connect_nodes  );
-    loc_pre_xi_Sorp_tilde           = MathLib::LocalVector::Zero( _n_xi_Sorp_tilde * n_max_connect_nodes  );
-    loc_pre_xi_Min_tilde            = MathLib::LocalVector::Zero( _n_xi_Min_tilde * n_max_connect_nodes  );
-    loc_pre_xi_Sorp                 = MathLib::LocalVector::Zero( _n_xi_Sorp * n_max_connect_nodes );
-    loc_pre_xi_Min                  = MathLib::LocalVector::Zero( _n_xi_Min * n_max_connect_nodes );
-    loc_pre_xi_Kin                  = MathLib::LocalVector::Zero( _n_xi_Kin * n_max_connect_nodes );
-
+    double dt = delta_t.getTimeStepSize();
 
     for ( i=0; i<n_ele; i++)
     {
@@ -417,6 +402,23 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct
         e->getNodeIDList(e->getMaximumOrder(), ele_node_ids);
         // number of connecting nodes
         nnodes = ele_node_ids.size(); 
+
+		// initialize the local vector------------------------------------------------
+		// current xi global
+		loc_cur_xi_global = MathLib::LocalVector::Zero(_n_xi_global * nnodes);
+		loc_cur_xi_Sorp_tilde = MathLib::LocalVector::Zero(_n_xi_Sorp_tilde * nnodes);
+		loc_cur_xi_Min_tilde = MathLib::LocalVector::Zero(_n_xi_Min_tilde * nnodes);
+		loc_cur_xi_Sorp = MathLib::LocalVector::Zero(_n_xi_Sorp * nnodes);
+		loc_cur_xi_Min = MathLib::LocalVector::Zero(_n_xi_Min * nnodes);
+		loc_cur_xi_Kin = MathLib::LocalVector::Zero(_n_xi_Kin * nnodes);
+		//previous xi global
+		loc_pre_xi_global = MathLib::LocalVector::Zero(_n_xi_global * nnodes);
+		loc_pre_xi_Sorp_tilde = MathLib::LocalVector::Zero(_n_xi_Sorp_tilde * nnodes);
+		loc_pre_xi_Min_tilde = MathLib::LocalVector::Zero(_n_xi_Min_tilde * nnodes);
+		loc_pre_xi_Sorp = MathLib::LocalVector::Zero(_n_xi_Sorp * nnodes);
+		loc_pre_xi_Min = MathLib::LocalVector::Zero(_n_xi_Min * nnodes);
+		loc_pre_xi_Kin = MathLib::LocalVector::Zero(_n_xi_Kin * nnodes);
+		// ----------------------------------------------------------------------------
 
 		node_xi_sorp_rate_values = MathLib::LocalMatrix::Zero(nnodes, _n_xi_Sorp); 
 		node_xi_min_rate_values  = MathLib::LocalMatrix::Zero(nnodes, _n_xi_Min);
@@ -438,33 +440,33 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct
 
         //TODO get the water content and multiply it in LHS and RHS
 
-        double dt = delta_t.getTimeStepSize();
 
-        MathLib::LocalMatrix localM = MathLib::LocalMatrix::Zero(ele_node_ids.size(), ele_node_ids.size());
-        MathLib::LocalMatrix localK = MathLib::LocalMatrix::Zero(ele_node_ids.size(), ele_node_ids.size());
+
+		MathLib::LocalMatrix localM = MathLib::LocalMatrix::Zero(nnodes, nnodes);
+		MathLib::LocalMatrix localK = MathLib::LocalMatrix::Zero(nnodes, nnodes);
 		
-		MathLib::LocalVector localF_xi_sorp = MathLib::LocalVector::Zero(ele_node_ids.size() * _n_xi_Sorp );
-		MathLib::LocalVector localF_xi_min  = MathLib::LocalVector::Zero(ele_node_ids.size() * _n_xi_Min );
-		MathLib::LocalVector localF_xi_kin  = MathLib::LocalVector::Zero(ele_node_ids.size() * _n_xi_Kin );
+		MathLib::LocalVector localF_xi_sorp = MathLib::LocalVector::Zero(nnodes * _n_xi_Sorp);
+		MathLib::LocalVector localF_xi_min = MathLib::LocalVector::Zero(nnodes * _n_xi_Min);
+		MathLib::LocalVector localF_xi_kin = MathLib::LocalVector::Zero(nnodes * _n_xi_Kin);
 
-        MathLib::LocalMatrix localDispersion = MathLib::LocalMatrix::Zero(ele_node_ids.size(), ele_node_ids.size());
-        MathLib::LocalMatrix localAdvection = MathLib::LocalMatrix::Zero(ele_node_ids.size(), ele_node_ids.size());
-        MathLib::LocalVector F = MathLib::LocalVector::Zero(ele_node_ids.size());
+		MathLib::LocalMatrix localDispersion = MathLib::LocalMatrix::Zero(nnodes, nnodes);
+		MathLib::LocalMatrix localAdvection = MathLib::LocalMatrix::Zero(nnodes, nnodes);
+
         MathLib::LocalMatrix dispersion_diffusion;
         MathLib::LocalMatrix d_poro = MathLib::LocalMatrix::Zero(3,3);
         MathLib::LocalMatrix poro(1,1);
         NumLib::ITXFunction::DataType v;
 
         //Local RHS, LHS and residual
-        localLHS_xi_sorp  = MathLib::LocalVector::Zero(ele_node_ids.size());
-        localRHS_xi_sorp  = MathLib::LocalVector::Zero(ele_node_ids.size());
-        localLHS_xi_min   = MathLib::LocalVector::Zero(ele_node_ids.size());
-        localRHS_xi_min   = MathLib::LocalVector::Zero(ele_node_ids.size());
-        localLHS_xi_kin   = MathLib::LocalVector::Zero(ele_node_ids.size());
-        localRHS_xi_kin   = MathLib::LocalVector::Zero(ele_node_ids.size());
-        local_res_sorp    = MathLib::LocalVector::Zero(ele_node_ids.size());
-        local_res_min     = MathLib::LocalVector::Zero(ele_node_ids.size());
-        local_res_kin     = MathLib::LocalVector::Zero(ele_node_ids.size());
+		localLHS_xi_sorp = MathLib::LocalVector::Zero(nnodes);
+		localRHS_xi_sorp = MathLib::LocalVector::Zero(nnodes);
+		localLHS_xi_min = MathLib::LocalVector::Zero(nnodes);
+		localRHS_xi_min = MathLib::LocalVector::Zero(nnodes);
+		localLHS_xi_kin = MathLib::LocalVector::Zero(nnodes);
+		localRHS_xi_kin = MathLib::LocalVector::Zero(nnodes);
+		local_res_sorp = MathLib::LocalVector::Zero(nnodes);
+		local_res_min = MathLib::LocalVector::Zero(nnodes);
+		local_res_kin = MathLib::LocalVector::Zero(nnodes);
 
 
         //assembleODE(time, e, local_u_n1, local_u_n, M, K, F);
@@ -517,28 +519,27 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct
             _fe->integrateDWxDN(j, dispersion_diffusion, localDispersion);
             _fe->integrateWxDN(j, v2, localAdvection);
 
-			MathLib::LocalMatrix * Np = _fe->getBasisFunction(); 
-			if(_n_xi_Kin > 0)
+			MathLib::LocalMatrix & Np = *_fe->getBasisFunction(); 
+
+            // loop over all xi_sorp
+			for (k = 0; k < _n_xi_Sorp; k++)
 			{
-				// loop over all xi_sorp
-				for (k = 0; k < _n_xi_Sorp; k++)
-				{
-					rate_xi_sorp_gp = (*Np) * node_xi_sorp_rate_values.col(k);
-					localF_xi_sorp.segment(nnodes*k, nnodes).noalias() += (*Np).transpose() * rate_xi_sorp_gp * _fe->getDetJ() * _q->getWeight(j);
-				}
-				// loop over all xi_min
-				for (k = 0; k < _n_xi_Min; k++)
-				{
-					rate_xi_min_gp = (*Np) * node_xi_min_rate_values.col(k);
-					localF_xi_min.segment(nnodes*k, nnodes).noalias() += (*Np).transpose() * rate_xi_min_gp * _fe->getDetJ() * _q->getWeight(j);
-				}
-				// loop over all xi_kin
-				for (k = 0; k < _n_xi_Kin; k++)
-				{
-					rate_xi_kin_gp = (*Np) * node_xi_kin_rate_values.col(k);
-					localF_xi_kin.segment(nnodes*k, nnodes).noalias() += (*Np).transpose() * rate_xi_kin_gp * _fe->getDetJ() * _q->getWeight(j);
-				}
+				rate_xi_sorp_gp = poro(0,0) * Np * node_xi_sorp_rate_values.col(k);
+				localF_xi_sorp.segment(nnodes*k, nnodes).noalias() += Np.transpose() * rate_xi_sorp_gp * _fe->getDetJ() * _q->getWeight(j);
 			}
+            // loop over all xi_min
+			for (k = 0; k < _n_xi_Min; k++)
+			{
+				rate_xi_min_gp = poro(0,0) * Np * node_xi_min_rate_values.col(k);
+				localF_xi_min.segment(nnodes*k, nnodes).noalias() += Np.transpose() * rate_xi_min_gp * _fe->getDetJ() * _q->getWeight(j);
+			}
+			// loop over all xi_kin
+			for (k = 0; k < _n_xi_Kin; k++)
+			{
+				rate_xi_kin_gp = poro(0,0) * Np * node_xi_kin_rate_values.col(k);
+				localF_xi_kin.segment(nnodes*k, nnodes).noalias() += Np.transpose() * rate_xi_kin_gp * _fe->getDetJ() * _q->getWeight(j);
+			}
+
         } // end of loop over all sampling points
 
 
@@ -546,6 +547,9 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct
 		
 		/*
 		 * RZ: 20.10.2013: mass lumping is essential for global newton iteration to converge for equilibrium reactions.
+		 * HS: 07.02.2014: The following mass lumping part missed the localF vector, the effective reaction rate
+		 *                 will be much smaller (factor 10 smaller in my test case). 
+		 *                 Therefore I fixed it for now.
 		 */
 		for ( int idx_ml=0; idx_ml < localM.rows(); idx_ml++ )
 		{
@@ -563,8 +567,14 @@ void TemplateTransientResidualFEMFunction_GIA_Reduct
 		    	localK(idx_ml, idx_col) = localK(idx_ml, idx_col)/mass_lump_val;
 		    }
 
+            // Normalize localF vector
+            for ( k = 0; k < _n_xi_Sorp; k++)
+                localF_xi_sorp(idx_ml * _n_xi_Sorp + k) /= mass_lump_val; 
+            for ( k = 0; k < _n_xi_Min; k++)
+                localF_xi_min(idx_ml * _n_xi_Min + k) /= mass_lump_val;
+            for ( k = 0; k < _n_xi_Kin; k++)
+                localF_xi_kin(idx_ml * _n_xi_Kin + k) /= mass_lump_val;
 		}
-
 
         //MathLib::LocalVector node_indx = MathLib::LocalVector::Zero(_n_xi);
         std::size_t idx_xi, node_indx, val_idx;
