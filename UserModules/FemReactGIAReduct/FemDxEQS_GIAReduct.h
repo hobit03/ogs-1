@@ -207,11 +207,14 @@ void TemplateTransientDxFEMFunction_GIA_Reduct<T1,T2,T3>::GlobalJacobianAssemble
 
     size_t i, nnodes;
     nnodes = _msh->getNumberOfNodes();
-    const double theta_water_content(0.5);  //monod example
-    //const double theta_water_content(0.32); //calcite exmaple
+    // HS: initialize to 1.0, later will be updated upon nodal values. 
+	const double theta_water_content(1.0); 
+
     const double delta_xi = 1E-12;
     std::size_t n_xi_total = _n_xi_local + _n_xi_global;
-    // _solv_minimization = new LocalProblem( _ReductionGIA);
+
+    double real_x[3];
+    // MeshLib::IMesh* msh = _dis_sys->getMesh();
 
     MathLib::LocalVector Unknown_vec 	 = MathLib::LocalVector::Zero(n_xi_total);
     MathLib::LocalMatrix DrateDxi    	 = MathLib::LocalMatrix::Zero(_J_tot_kin, n_xi_total);
@@ -308,6 +311,15 @@ void TemplateTransientDxFEMFunction_GIA_Reduct<T1,T2,T3>::GlobalJacobianAssemble
     // loop over all the nodes
     for (size_t node_idx=0; node_idx < nnodes; node_idx++ )
     {
+        // get the nodal water content
+        // find the location of the node, 
+        // and evaluate the porosity at this location
+        // use it as water content for this node. 
+        /* TODO, TODO
+        MeshLib::Node *node = msh->getnode(node_idx); 
+        NumLib::TXPosition node_pos(NumLib::TXPosition::Node, node->getNodeID(), real_x);
+        */
+
             // on each node, get the right start value
             // get the right set of xis
             for (i=0; i < _n_xi_global; i++)
@@ -350,7 +362,7 @@ void TemplateTransientDxFEMFunction_GIA_Reduct<T1,T2,T3>::GlobalJacobianAssemble
             Unknown_vec.head(_n_xi_global) = loc_cur_xi_global;
             Unknown_vec.tail(_n_xi_local) = loc_cur_xi_local;
 
-            if(_n_xi_Kin > 0)
+            if(this->_J_tot_kin > 0)
             {
             	for(std::size_t i = 0; i < n_xi_total ; i++ )
             	{
@@ -664,6 +676,8 @@ void TemplateTransientDxFEMFunction_GIA_Reduct<T1,T2,T3>
 		
 		/*
 		 * RZ: 20.10.2013: mass lumping is essential for global newton iteration to converge for equilibrium reactions.
+		 * HS: 08.02.2014: Notice the following mass lumping part missed the localF vector, 
+         *                 We need to compensate the Local_F vector as well. 
 		 */
 		for (int idx_ml=0; idx_ml < localM.rows(); idx_ml++ )
 		{
@@ -680,9 +694,7 @@ void TemplateTransientDxFEMFunction_GIA_Reduct<T1,T2,T3>
 		    {
 		    	localK(idx_ml, idx_col) = localK(idx_ml, idx_col)/mass_lump_val;
 		    }
-
 		}
-
 
 		node_indx_vec.resize(ele_node_ids.size());
 		col_indx_vec.resize(ele_node_ids.size());
