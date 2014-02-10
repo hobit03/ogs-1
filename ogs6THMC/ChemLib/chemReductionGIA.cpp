@@ -107,18 +107,12 @@ void chemReductionGIA::buildStoi(BaseLib::OrderedMap<std::string, ogsChem::ChemC
 			tmp_str  = list_kin_reactions[j]->get_vecCompNames()[i];
 			tmp_Comp = map_chemComp.find(tmp_str);
 			tmp_idx  = tmp_Comp->second->getIndex();
-			if ( list_kin_reactions[j]->get_vecStoi().size() > 2 )
-			{
-				// normal reactions
-				tmp_stoi = list_kin_reactions[j]->get_vecStoi()[i];
-				// and put them into Stoi matrix
-				_matStoi(tmp_idx,j) = tmp_stoi;
-			}
-			else  // this is a basis component
-			{
-			    _matStoi(tmp_idx,j) = 1.0;
-			}
 
+			// for kinetic reactions, no basis species. 
+			// treat as normal reactions. 
+			tmp_stoi = list_kin_reactions[j]->get_vecStoi()[i];
+			// and put them into Stoi matrix
+			_matStoi(tmp_idx, j + list_eq_reactions.size()) = tmp_stoi;
 		}  // end of for i
 	}  // end of for j
 
@@ -189,16 +183,23 @@ void chemReductionGIA::update_reductionScheme(void)
     	//_mat_Ssorp_li = _mat_Ssorp_ast;
     	//Linear_Indep =[];
     	//Linear_Dep   =[];
-    	for (j= 0; j < _Jsorp; j++)
-    	{
-    		for (i=0; i< _I_tot; i++)
-    		{
-    			if (_mat_Ssorp_li(i,j) != _mat_Ssorp(i,j))
-    			{
-    				_mat_Ssorp_ld (i,j) = _mat_Ssorp(i,j);
-    			}
-    		}
-    	}
+		// create memory for _mat_Ssorp_ld
+		_mat_Ssorp_ld = LocalMatrix::Zero(_I_tot, _Jsorp - _mat_Ssorp_li.cols()); 
+
+		if (_mat_Ssorp_ld.cols() > 0)
+		{
+			// TODO HS: 10.02.2014: This part is not correct. 
+			for (j = 0; j < _Jsorp; j++)
+			{
+				for (i = 0; i < _I_tot; i++)
+				{
+					if (_mat_Ssorp_li(i, j) != _mat_Ssorp(i, j))
+					{
+						_mat_Ssorp_ld(i, j) = _mat_Ssorp(i, j);
+					}
+				}
+			}
+		}
 
     	_mat_S1sorp_li.setZero();   //clean the allocated memory
     	_mat_S1sorp_li = _mat_Ssorp_li.topRows(_I_mob);
@@ -210,8 +211,10 @@ void chemReductionGIA::update_reductionScheme(void)
     	_mat_S2sorp = _mat_S2sorp_li; // if _Jsorp_ld = 0
 
     	// construct the global _mat_Ssorp matrix, right parts contains the linearly independent and left part contains the linearly dependent reactions.
-    	_matrix_Ssorp.leftCols(_Jsorp_li)  = _mat_Ssorp_li;
-    	_matrix_Ssorp.rightCols(_Jsorp_ld) = _mat_Ssorp_ld;
+        if (_Jsorp_li > 0)
+            _matrix_Ssorp.leftCols(_Jsorp_li)  = _mat_Ssorp_li;
+        if (_Jsorp_ld > 0)
+            _matrix_Ssorp.rightCols(_Jsorp_ld) = _mat_Ssorp_ld;
 
 
     	if( _mat_Ssorp_ld.cols())
