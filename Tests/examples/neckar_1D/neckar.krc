@@ -21,7 +21,7 @@ GeoSys Kinetic Reactions
  $EQUATION
   1 CH2O + 1 O2 =  1 CO2 + 1 H2O ; 
  $USER_EXPRESSION
-  1.0 * 1.57E-9 * mCH2O * mO2 / ( 2.94E-4 + mO2 )
+  1.0 * 1.57E-9 * 10*mCH2O * mO2 / ( 2.94E-4 + mO2 )
 
 #REACTION ; 
  $NAME
