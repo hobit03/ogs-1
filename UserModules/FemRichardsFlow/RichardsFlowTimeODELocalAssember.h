@@ -75,46 +75,46 @@ protected:
             // get primary variable water pressure pw
             // u1 is the current step primary variable. 
             Pw = Np * u1; 
-            Pc = -1.0 * Pw(0,0); 
-            // get water saturation using pw
-            Sw = pm->getSwbyPc(Pc);
-			//Sw = (-0.228*log(Pc))+ 2.7322;
-			//if (Sw > 1.0) Sw = 1.0;
-			//if (Sw < 0.25) Sw = 0.25;
+			Pc = -1.0 * Pw(0,0);
             // density of water
             fluid->density->eval(gp_pos, rho_w);
             // get drhow_dp
             fluid->drho_dp->eval(gp_pos, drhow_dp); 
             // viscosity of the fluid
             fluid->dynamic_viscosity->eval(gp_pos, mu);
-			// get dSwdPc
-            dSwdPc = pm->getdSwdPc( Pc );
-			///*
-			//Sw = (-0.228*log(Pc+1e-06))+ 2.7322;
-			//if (Sw > 1.0) Sw = 1.0;
-			//if (Sw < 0.25) Sw = 0.25;
-			//double y1 = Sw; 
-			//Sw = (-0.228*log(Pc+1e-06))+ 2.7322;
-			//if (Sw > 1.0) Sw = 1.0;
-			//if (Sw < 0.25) Sw = 0.25;
-			//double y2 = Sw;
-			//dSwdPc = (y2-y1)/((Pc+1e-06)-(Pc-1e-06));*/
 
+			/*for (size_t c=2000; c<2200; c=c+1) {
+				Sw = pm->getSwbyPc(c);
+				dSwdPc = pm->getdSwdPc( c , Sw);
+				k_rel = pm->getKrelbySw(Sw,0 );  
+				pm->permeability->eval(gp_pos, k); 
+				std::cout << "Pc-Sw-dSwdPc-k_rel-k: " << c << " "<< Sw << " "<< dSwdPc << " " << k_rel << " " << k << std::endl;
+			}*/
+			
+
+			//Brooks-Corey
+			//double lamda = 0.20; // pore size distribution factor
+			//double Pd = 2000; //air entry pressure Pa
+			//double Swr = 0.1;
+			//Sw = pow(Pd/Pc,lamda);
+			//if (Sw>1.0) Sw=1.0;
+			//dSwdPc = -lamda*(pow(Pd/Pc,lamda))/Pc;
+
+			// get water saturation using pw
+            Sw = pm->getSwbyPc(Pc);
+			// get dSwdPc
+            dSwdPc = pm->getdSwdPc( Pc , Sw);
 			// get k_rel
             k_rel = pm->getKrelbySw(Sw,0 );  // 0 stands for aq. phase
             // get intrinsic permeability
             pm->permeability->eval(gp_pos, k); 
 
-			if (Pc > 23500)
-			{
-				Sw=Sw;
-			}
-
-            // calculate mass matrix coefficient
+			// calculate mass matrix coefficient
             mass_mat_coeff(0,0) = (storage * Sw) + (poro * Sw * drhow_dp) - (poro * dSwdPc); 
             // multiply shape shape 
             fe->integrateWxN(j, mass_mat_coeff, localM);
-			            
+			//localM.setZero();
+			
             // calculate laplace matrix coefficient
             local_k_mu *= k * k_rel / mu; 
             // multiply dshape dshape
@@ -129,6 +129,7 @@ protected:
             } // end of if hasGravityEffect
 
         } // end of for GP
+
 
 			// testing mass lumping----------------------------
 			for (size_t idx_ml=0; idx_ml < localM.cols(); idx_ml++ )
