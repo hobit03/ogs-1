@@ -21,7 +21,7 @@ namespace MathLib
 {
 
 /**
- * \brief Picard method (Fixed-pint iteration method)
+ * \brief Picard method (Fixed-point iteration method)
  */
 class PicardMethod
 {
@@ -40,25 +40,38 @@ public:
     template<class F_PROBLEM, class T_VALUE, class T_CONVERGENCE>
     int solve(F_PROBLEM &fun,  const T_VALUE &x0, T_VALUE &x_new, T_VALUE &x_old, T_VALUE &dx, size_t max_itr_count=100, T_CONVERGENCE* convergence=0)
     {
-        T_CONVERGENCE _default_convergence;
+			
+		T_CONVERGENCE _default_convergence;
         if (convergence==0) convergence = &_default_convergence;
         x_old = x0;
-
+		
         INFO("Picard iteration started!");
         bool converged = false;
         size_t itr_cnt = 0;
+		
+		/*double norm_dx0= 1.0;
+		double norm_dx = 1.0;*/
+		double max_dx =0.0;
         for (itr_cnt=0; itr_cnt<max_itr_count; itr_cnt++) {
             fun.eval(x_old, x_new);
             dx = x_new;
             dx -= x_old;
-            //printout(i, x_new, dx);
-            converged = convergence->check(0, &dx, &x_new);
-            INFO("-> Picard #%d: error=%1.3e", itr_cnt+1, convergence->getError());
+					
+			//std::cout <<"x0= ";
+			//for (size_t i=0; i<x0.size(); i++) std::cout <<"" << x0[i] << " ";
+			//std::cout << " \n";
+			//printout(itr_cnt, x_old, dx); //TK
+			//printout(itr_cnt, x_new, dx); //TK
+            
+			converged = convergence->check(0, &dx, &x_new);
+			INFO("-> Picard #%d: error=%1.3e", itr_cnt+1, convergence->getError());
+			//INFO("-> Picard #%d: error=%1.3e", itr_cnt+1, norm_dx/norm_dx0 );
             if (converged) {
                 break;
             }
-            x_old = x_new;
+			x_old = x_new;
         }
+
 
         INFO("------------------------------------------------------------------");
         INFO("*** PICARD nonlinear solver result");
@@ -83,6 +96,7 @@ public:
     int solve(F_PROBLEM &fun, const double x0, double &x_new, double error=1e-6, size_t max_itr_count=100)
     {
         double x_old, dx;
+
         NRCheckConvergence<double,NRErrorNorm1DX> check(error);
         return solve(fun, x0, x_new, x_old, dx, max_itr_count, &check);
     }

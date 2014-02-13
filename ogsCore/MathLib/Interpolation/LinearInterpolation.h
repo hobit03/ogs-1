@@ -58,7 +58,7 @@ public:
      * @return
      */
     double getValue ( double pnt_to_interpolate );
-	double getSlope ( double pnt_to_interpolate );
+	double getSlope ( double pnt_to_interpolate, double weight);
 
 private:
     const std::vector<double> _supporting_points;
