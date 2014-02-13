@@ -59,7 +59,7 @@ void lis_quad_x87_fpu_init(LIS_UNSIGNED_INT *cw_old)
 #ifdef HAS_X87_FPU
 #ifdef _WIN32
 	LIS_UNSIGNED_INT cw = _control87(0, 0);
-	_control87(0x00010000, 0x00030000);
+	//_control87(0x00010000, 0x00030000);
 	*cw_old = cw;
 	cw = _control87(0, 0);
 #else
