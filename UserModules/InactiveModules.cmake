@@ -9,7 +9,7 @@ LIST(APPEND INACTIVE_MODULES
     FemPoroelastic
     FemDeformationIncrementalForm
     FemHeatTransport
-    FemRichardsFlow
+    #FemRichardsFlow
     THMmf
     Xfem
      ) 
