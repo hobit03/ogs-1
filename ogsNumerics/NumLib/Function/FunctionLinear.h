@@ -28,9 +28,9 @@ public:
     {
         v = _linear->getValue(x);
     };
-    virtual void eval_slope(const double &x, double &slope)
+    virtual void eval_slope(const double &x, double &slope, double &weight_factor)
     {
-        slope = _linear->getSlope(x); 
+        slope = _linear->getSlope(x, weight_factor); 
     };
     virtual TemplateFunction<double,double>* clone() const
     {

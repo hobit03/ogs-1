@@ -23,6 +23,7 @@
 #include "SolutionLib/Fem/FemSourceTerm.h"
 #include "Ogs6FemData.h"
 #include "FemVariableBuilder.h"
+#include "MathLib/DataType.h"
 
 template <class T1, class T2>
 bool FunctionRichards<T1,T2>::initialize(const BaseLib::Options &option)
@@ -34,18 +35,10 @@ bool FunctionRichards<T1,T2>::initialize(const BaseLib::Options &option)
 
     //mesh and FE objects
     MeshLib::IMesh* msh = femData->list_mesh[msh_id];
-    MyDiscreteSystem* dis = 0;
+    //MyDiscreteSystem* dis = 0;
     dis = DiscreteLib::DiscreteSystemContainerPerMesh::getInstance()->createObject<MyDiscreteSystem>(msh);
     _feObjects = new FemLib::LagrangeFeObjectContainer(msh);
-
-    ////Compound
-    //size_t compound_id = option.getOptionAsNum<size_t>("CompoundID");
-    //if (femData->list_compound.size() < compound_id) {
-    //    ERR("***Error: compound data not found (compound id=%d)", compound_id);
-    //    return false;
-    //}
-    //_compound = femData->list_compound[compound_id];
-
+	
     // local assemblers
     MyLinearAssemblerType* linear_assembler = new MyLinearAssemblerType(_feObjects, msh->getGeometricProperty()->getCoordinateSystem());
     MyResidualAssemblerType* r_assembler = new MyResidualAssemblerType(_feObjects, msh->getGeometricProperty()->getCoordinateSystem());
@@ -57,9 +50,9 @@ bool FunctionRichards<T1,T2>::initialize(const BaseLib::Options &option)
     eqs->initialize(linear_assembler, r_assembler, j_eqs);
     _problem->setTimeSteppingFunction(*tim);
     // set up variable
-    typename MyProblemType::MyVariable* pressure_w = _problem->addVariable("PRESSURE1");
+    typename MyProblemType::MyVariable* pressure_w_variable = _problem->addVariable("PRESSURE1");
     FemVariableBuilder varBuilder;
-    varBuilder.doit("PRESSURE1", option, msh, femData->geo, femData->geo_unique_name, _feObjects, pressure_w);
+    varBuilder.doit("PRESSURE1", option, msh, femData->geo, femData->geo_unique_name, _feObjects, pressure_w_variable);
 
     // set up solution
     _solution = new MySolutionType(dis, _problem);
@@ -67,16 +60,11 @@ bool FunctionRichards<T1,T2>::initialize(const BaseLib::Options &option)
     const BaseLib::Options* optNum = option.getSubGroup("Numerics");
     linear_solver->setOption(*optNum);
     _solution->getNonlinearSolver()->setOption(*optNum);
-
-    // set initial output
-    OutputVariableInfo var(this->getOutputParameterName(Pressure), msh_id, OutputVariableInfo::Node, OutputVariableInfo::Real, 1, _solution->getCurrentSolution(0));
-    //OutputVariableInfo var(this->getOutputParameterName(Pressure), _problem->getDiscreteSystem()->getMesh()->getID(), OutputVariableInfo::Node, OutputVariableInfo::Real, 1, _solution->getCurrentSolution(0));
-
-	femData->outController.setOutput(var.name, var); 
-
-    // initial output parameter
-    this->setOutput(Pressure, _solution->getCurrentSolution(pressure_w->getID()));
-
+	
+	// set initial output
+	CalculateSaturationValuesForOutput(dis);
+	GetAndInsertPrimaryVariable(_problem->getDiscreteSystem()->getMesh()->getID());
+    GetAndInsertAdditionalOutputVariables(msh_id);    
     return true;
 }
 
@@ -89,17 +77,61 @@ void FunctionRichards<T1, T2>::initializeTimeStep(const NumLib::TimeStep &/*time
 template <class T1, class T2>
 void FunctionRichards<T1, T2>::updateOutputParameter(const NumLib::TimeStep &/*time*/)
 {
+	CalculateSaturationValuesForOutput(dis);
     setOutput(Pressure, _solution->getCurrentSolution(0));
+	setOutput(Saturation, _saturation_w);
+	
 }
 
 template <class T1, class T2>
 void FunctionRichards<T1, T2>::output(const NumLib::TimeStep &/*time*/)
 {
-    //update data for output
-    const size_t msh_id = _problem->getDiscreteSystem()->getMesh()->getID();
+    //data for output
+	GetAndInsertPrimaryVariable(_problem->getDiscreteSystem()->getMesh()->getID());
+	GetAndInsertAdditionalOutputVariables(_problem->getDiscreteSystem()->getMesh()->getID());
+};
+
+
+template <class T1, class T2>
+void FunctionRichards<T1, T2>::GetAndInsertPrimaryVariable(const size_t msh_id)
+{
     Ogs6FemData* femData = Ogs6FemData::getInstance();
-    OutputVariableInfo var(this->getOutputParameterName(Pressure), msh_id, OutputVariableInfo::Node, OutputVariableInfo::Real, 1, _solution->getCurrentSolution(0));
-    femData->outController.setOutput(var.name, var); 
+    OutputVariableInfo var1(getOutputParameterName(Pressure), msh_id, OutputVariableInfo::Node, OutputVariableInfo::Real, 1, _solution->getCurrentSolution(0));
+    femData->outController.setOutput(var1.name, var1); 
+};
 
+template <class T1, class T2>
+void FunctionRichards<T1, T2>::GetAndInsertAdditionalOutputVariables(const size_t msh_id)
+{
+    Ogs6FemData* femData = Ogs6FemData::getInstance();
+    OutputVariableInfo var2(getOutputParameterName(Saturation), msh_id, OutputVariableInfo::Node, OutputVariableInfo::Real, 1, _saturation_w);
+    femData->outController.setOutput(var2.name, var2); 
+};
 
+template <class T1, class T2>
+void FunctionRichards<T1, T2>::CalculateSaturationValuesForOutput(MyDiscreteSystem* dis)
+{
+	_pressure_w = new MyNodalFunctionScalar();
+	_pressure_w = _solution->getCurrentSolution(0);
+	_saturation_w = new MyNodalFunctionScalar(); 
+	_saturation_w->initialize(*dis, FemLib::PolynomialOrder::Linear, 0.0);
+
+			// get pointer to corresponding porous media class
+			//const size_t n_dim = e.getDimension();
+			//size_t mat_id = e.getGroupID();
+			//MaterialLib::PorousMedia* pm = Ogs6FemData::getInstance()->list_pm[mat_id];
+     double Pc = 0.0, Sw=0.0;
+	 size_t node_idx; 
+	 for (node_idx = _pressure_w->getDiscreteData()->getRangeBegin(); 
+			 node_idx < _pressure_w->getDiscreteData()->getRangeEnd(); 
+			 node_idx++ )
+	 {
+	 MaterialLib::PorousMedia* pm = Ogs6FemData::getInstance()->list_pm[0];
+	 Pc= -1.0 * _pressure_w->getValue(node_idx);
+	 Sw= pm->getSwbyPc(Pc);
+	 //Sw = (-0.228*log(Pc) )+ 2.7322;
+ 	 // if (Sw > 1.0) Sw = 1.0;
+	 //if (Sw < 0.25) Sw = 0.25;
+	 _saturation_w->setValue(node_idx,Sw);	
+	 }
 };

@@ -43,13 +43,19 @@ protected:
         double k        = 0.0;  // intrinsic permeability
         double k_rel    = 0.0;  // relative permeability
         double mu       = 0.0;  // dynamic viscosity of water
+		double geo_area = 1.0;
 
         // if there is gravity, set up a gravity vector
+		//TODO: must be checked if this has an effect
         if (hasGravityEffect) {
+	        vec_g = MathLib::LocalVector::Zero(_problem_coordinates.getDimension());
             vec_g[_problem_coordinates.getIndexOfY()] = -9.81;
         }
+
+
         FemLib::IFemNumericalIntegration *q = fe->getIntegrationMethod();
         double gp_x[3], real_x[3];
+
         for (size_t j=0; j<q->getNumberOfSamplingPoints(); j++) {
             q->getSamplingPoint(j, gp_x);
             fe->computeBasisFunctions(gp_x);
@@ -58,8 +64,9 @@ protected:
             MathLib::LocalMatrix &Np  = *fe->getBasisFunction(); // get basis function
             MathLib::LocalMatrix &dNp = *fe->getGradBasisFunction(); // get gradient basis function
             local_k_mu = MathLib::LocalMatrix::Identity(e.getDimension(), e.getDimension());
-            double fac = fe->getDetJ() * q->getWeight(j);
-
+	        pm->geo_area->eval(gp_pos, geo_area);
+			double fac = geo_area * fe->getDetJ() * q->getWeight(j);
+					
             // geting variables and parameters
             // get porosity
             pm->porosity->eval(gp_pos, poro);
@@ -68,55 +75,72 @@ protected:
             // get primary variable water pressure pw
             // u1 is the current step primary variable. 
             Pw = Np * u1; 
-            Pc = -1.0 * Pw(0,0); 
-            // get water saturation using pw
-            Sw = pm->getSwbyPc(Pc);
+			Pc = -1.0 * Pw(0,0);
             // density of water
             fluid->density->eval(gp_pos, rho_w);
             // get drhow_dp
             fluid->drho_dp->eval(gp_pos, drhow_dp); 
             // viscosity of the fluid
             fluid->dynamic_viscosity->eval(gp_pos, mu);
+
+			/*for (size_t c=2000; c<2200; c=c+1) {
+				Sw = pm->getSwbyPc(c);
+				dSwdPc = pm->getdSwdPc( c , Sw);
+				k_rel = pm->getKrelbySw(Sw,0 );  
+				pm->permeability->eval(gp_pos, k); 
+				std::cout << "Pc-Sw-dSwdPc-k_rel-k: " << c << " "<< Sw << " "<< dSwdPc << " " << k_rel << " " << k << std::endl;
+			}*/
+			
+
+			//Brooks-Corey
+			//double lamda = 0.20; // pore size distribution factor
+			//double Pd = 2000; //air entry pressure Pa
+			//double Swr = 0.1;
+			//Sw = pow(Pd/Pc,lamda);
+			//if (Sw>1.0) Sw=1.0;
+			//dSwdPc = -lamda*(pow(Pd/Pc,lamda))/Pc;
+
+			// get water saturation using pw
+            Sw = pm->getSwbyPc(Pc);
 			// get dSwdPc
-            dSwdPc = pm->getdSwdPc( Pc ); 
-            // get k_rel
+            dSwdPc = pm->getdSwdPc( Pc , Sw);
+			// get k_rel
             k_rel = pm->getKrelbySw(Sw,0 );  // 0 stands for aq. phase
             // get intrinsic permeability
             pm->permeability->eval(gp_pos, k); 
 
-            // calculate mass matrix coefficient
-            mass_mat_coeff(0,0) = storage * Sw + poro * Sw * drhow_dp - poro * dSwdPc; 
+			// calculate mass matrix coefficient
+            mass_mat_coeff(0,0) = (storage * Sw) + (poro * Sw * drhow_dp) - (poro * dSwdPc); 
             // multiply shape shape 
             fe->integrateWxN(j, mass_mat_coeff, localM);
-
+			//localM.setZero();
+			
             // calculate laplace matrix coefficient
             local_k_mu *= k * k_rel / mu; 
             // multiply dshape dshape
             fe->integrateDWxDN(j, local_k_mu, localK);
             // if includes gravity
+
             if (hasGravityEffect) { 
                 // since no primary vairable involved
                 // directly assemble to the Right-Hand-Side
-                // F += dNp^T * K * gz
-                localF.noalias() += fac * dNp.transpose() * local_k_mu * rho_w * vec_g;
+                // F += dNp^T * K * g
+                localF.noalias() += fac * dNp.transpose() * local_k_mu  * rho_w *vec_g;
             } // end of if hasGravityEffect
+
         } // end of for GP
 
-        // testing mass lumping----------------------------
-        // std::cout << "Local Mass Matrix before lumping: " << std::endl; 
-        // std::cout << localM << std::endl; 
-        for (int idx_ml=0; idx_ml < localM.cols(); idx_ml++ )
-        {
-            double mass_lump_val;
-            mass_lump_val = localM.col(idx_ml).sum();
-            localM.col(idx_ml).setZero(); 
-            localM(idx_ml, idx_ml) = mass_lump_val; 
-        }
-        // std::cout << "Local Mass Matrix after lumping: " << std::endl; 
-        // std::cout << localM << std::endl; 
-        // std::cout << "Local K Matrix: " << std::endl; 
-        // std::cout << localK << std::endl; 
-        //end of testing mass lumping---------------------
+
+			// testing mass lumping----------------------------
+			for (size_t idx_ml=0; idx_ml < localM.cols(); idx_ml++ )
+			{
+				double mass_lump_val;
+				mass_lump_val = localM.col(idx_ml).sum();
+				localM.col(idx_ml).setZero(); 
+				localM(idx_ml, idx_ml) = mass_lump_val; 
+			}
+			// end of testing mass lumping---------------------
+
 
     }  // end of assemble ODE
 

@@ -130,7 +130,7 @@ struct PorousMedia : public IMedium
         return Sw; 
     }
 
-	virtual double getdSwdPc (double Pc)
+	virtual double PorousMedia::getdSwdPc (double Pc, double Sw)
     {
         double dSwdPc = 0.0;
 
@@ -138,7 +138,7 @@ struct PorousMedia : public IMedium
         {
         case 0:  // curve value
             // get the value from curve. 
-            capp_sat_curve->eval_slope( Pc, dSwdPc );
+            capp_sat_curve->eval_slope( Pc, dSwdPc, Sw);
             break;
         default: 
             ERR("Error in getSwbyPc: No valid capilary pressure vs water saturation model! "); 

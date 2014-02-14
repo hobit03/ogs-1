@@ -3,9 +3,17 @@
 <coupling>
 	<P algorithm="Serial" convergence="FemFunctionConvergenceCheck" max_itr="1" epsilon="1e-4">
 		<out>PRESSURE</out>
+<<<<<<< .merge_file_a03360
 		<problems>
 			<M name="RICHARDS_FLOW" type="RICHARDS_FLOW">
 				<out>PRESSURE1</out>
+=======
+		<out>SATURATION1</out>
+		<problems>
+			<M name="RICHARDS_FLOW" type="RICHARDS_FLOW">
+				<out>PRESSURE1</out>
+				<out>SATURATION1</out>
+>>>>>>> .merge_file_a03784
 			</M>
 		</problems>
 	</P>

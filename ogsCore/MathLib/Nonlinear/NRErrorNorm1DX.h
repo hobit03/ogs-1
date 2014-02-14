@@ -33,6 +33,7 @@ public:
         if (dx==0) return .0;
         return norm1(*dx, dx->size());
     }
+
 };
 
 template<>
@@ -40,5 +41,6 @@ inline double NRErrorNorm1DX::error(const double*, const double* dx, const doubl
 {
     return fabs(*dx);
 }
+
 
 }

@@ -4,6 +4,7 @@ GeoSys-OUT: Output ------------------------------------------------
   RICHARDS_FLOW
  $NOD_VALUES
   PRESSURE1
+  SATURATION1
  $GEO_TYPE
   DOMAIN
  $TIM_TYPE

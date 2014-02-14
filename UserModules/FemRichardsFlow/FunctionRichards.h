@@ -36,10 +36,14 @@ class FunctionRichards
 {
 public:
     enum In {};
-    enum Out { Pressure = 0 };
+    enum Out { Pressure = 0, Saturation= 1 };
 
     typedef T_DISCRETE_SYSTEM MyDiscreteSystem;
     typedef T_LINEAR_SOLVER MyLinearSolver;
+
+    // memory for discretized concentration vector
+	typedef typename FemLib::FemNodalFunctionScalar<MyDiscreteSystem>::type MyNodalFunctionScalar;
+
     // local assembler // Todo this assembler must be changed later, after we setup some for Richards flow
     typedef RichardsFlowTimeODELocalAssembler<NumLib::ElementWiseTimeEulerEQSLocalAssembler> MyLinearAssemblerType;
     typedef RichardsFlowTimeODELocalAssembler<NumLib::ElementWiseTimeEulerResidualLocalAssembler> MyResidualAssemblerType;
@@ -71,7 +75,9 @@ public:
     {
         // set default parameter name
         //ProcessLib::AbstractTransientProcess::setInputParameterName(Velocity, "Velocity");
-        ProcessLib::AbstractTransientProcess::setOutputParameterName(Pressure, "Pressure");
+		this->resizeOutputParameter(2);
+        this->setOutputParameterName(Pressure, "Pressure");
+		this->setOutputParameterName(Saturation, "Saturation");
     };
 
 	//DESTRUCTOR
@@ -100,6 +106,11 @@ protected:
 
     virtual void output(const NumLib::TimeStep &time);
 
+    virtual void GetAndInsertPrimaryVariable(const size_t msh_id);
+    virtual void GetAndInsertAdditionalOutputVariables(const size_t msh_id);
+	virtual void CalculateSaturationValuesForOutput(MyDiscreteSystem* dis);
+
+
 private:
     DISALLOW_COPY_AND_ASSIGN(FunctionRichards);
 
@@ -109,6 +120,10 @@ private:
     FemLib::LagrangeFeObjectContainer* _feObjects;
     //MaterialLib::Compound* _compound;
     NumLib::DiscreteDataConvergenceCheck _checker;
+	MyDiscreteSystem* dis;
+	/*nodal saturation values */ 
+    MyNodalFunctionScalar* _pressure_w; 
+	MyNodalFunctionScalar* _saturation_w;  
 };
 
 #include "FunctionRichards.hpp"
