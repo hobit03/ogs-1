@@ -110,11 +110,12 @@ struct PorousMedia : public IMedium
             break;
 		case 6:
 			{
-			double Sr, Sm, ex, Sw2;
+			double Sr, Sm, ex, Sw2, epsilon;
 			Sr = res_saturation;
 			Sm = max_saturation;
 			ex = (2+3*exp_saturation)/exp_saturation;
-			Sw2 = MathLib::MRange (Sr, Sw, Sm);
+			epsilon = std::numeric_limits<double>::epsilon();
+			Sw2 = MathLib::MRange(Sr+epsilon, Sw, Sm-epsilon);
 			kr = pow((Sw2-Sr)/(Sm-Sr),ex);
 			 if( kr < minimum_relative_permeability )
 	        kr = minimum_relative_permeability;
@@ -138,14 +139,14 @@ struct PorousMedia : public IMedium
             capp_sat_curve->eval( Pc, Sw );
             break;
 		case 6: // Brooks-corey
-			double lamda, Sm, Sr;
+			double lamda, Sm, Sr, epsilon;
 			lamda = exp_saturation;
 			Sr = res_saturation;
 			Sm = max_saturation;
+			if (Pc < Pb) Pc = Pb;
 			Sw = pow(Pb/Pc,lamda)*(Sm-Sr)+Sr;
-			//if (Pc <= 0 || Sw >= Sm) // is there better choices than this ??
-				//Sw = Sm;
-			Sw = MathLib::MRange (Sr, Sw, Sm);
+			epsilon = std::numeric_limits<double>::epsilon();
+			Sw = MathLib::MRange (Sr+epsilon, Sw, Sm-epsilon);
 			break;
         default: 
             ERR("No valid capilary pressure vs water saturation model! "); 
@@ -171,6 +172,7 @@ struct PorousMedia : public IMedium
 			Sr = res_saturation;
 			Sm = max_saturation;
 			v1 = pow((Pc/Pb),-lamda);
+			if (Pc < Pb) Pc = Pb;
 			dSwdPc = (lamda*v1*(Sr - Sm)) / Pc; 
 			break;
         default: 
