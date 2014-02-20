@@ -16,6 +16,7 @@
 #include "IMedium.h"
 #include "NumLib/Function/FunctionLinear.h"
 #include "logog.hpp"
+#include "MathLib/MathTools.h"
 
 
 namespace NumLib
@@ -36,9 +37,10 @@ struct PorousMedia : public IMedium
     NumLib::ITXFunction* geo_area;
     NumLib::ITXFunction* dispersivity_long;
     NumLib::ITXFunction* dispersivity_trans; 
-	NumLib::ITXFunction* res_saturation; 
-    NumLib::ITXFunction* max_saturation;      
-    NumLib::ITXFunction* exp_saturation;      
+	double res_saturation; 
+    double max_saturation;      
+    double exp_saturation;
+	double Pb;
     NumLib::FunctionLinear1D* capp_sat_curve; 
     std::vector<size_t> perm_saturation_model;    
     std::vector<NumLib::FunctionLinear1D*> perm_saturation_curve; 
@@ -52,10 +54,10 @@ struct PorousMedia : public IMedium
                 permeability,
                 porosity,
                 storage,
-                geo_area,
-                res_saturation, 
-                max_saturation, 
-				exp_saturation
+                geo_area
+               // res_saturation, 
+                //max_saturation, 
+				//exp_saturation
                 );
         BaseLib::zeroObject(
                 capp_sat_curve,
@@ -73,10 +75,10 @@ struct PorousMedia : public IMedium
                 permeability,
                 porosity,
                 storage,
-                geo_area,
-                res_saturation,
-				max_saturation,
-                exp_saturation
+                geo_area
+               // res_saturation,
+				//max_saturation,
+                //exp_saturation
                 );
         perm_saturation_model.clear();
         BaseLib::releaseObjectsInStdVector(perm_saturation_curve);
@@ -85,6 +87,7 @@ struct PorousMedia : public IMedium
     }
 
     virtual MediumType::type getMediumType() const {return MediumType::PorousMedium;};
+
 
 	virtual double getKrelbySw(const double Sw/*wetting saturation*/, size_t idx_phase)
     {
@@ -105,6 +108,18 @@ struct PorousMedia : public IMedium
             if( kr < minimum_relative_permeability )
 	        kr = minimum_relative_permeability;
             break;
+		case 6:
+			{
+			double Sr, Sm, ex, Sw2;
+			Sr = res_saturation;
+			Sm = max_saturation;
+			ex = (2+3*exp_saturation)/exp_saturation;
+			Sw2 = MathLib::MRange (Sr, Sw, Sm);
+			kr = pow((Sw2-Sr)/(Sm-Sr),ex);
+			 if( kr < minimum_relative_permeability )
+	        kr = minimum_relative_permeability;
+			}
+			break;
         }
         return kr; 
     }
@@ -122,6 +137,16 @@ struct PorousMedia : public IMedium
             // get the value from curve. 
             capp_sat_curve->eval( Pc, Sw );
             break;
+		case 6: // Brooks-corey
+			double lamda, Sm, Sr;
+			lamda = exp_saturation;
+			Sr = res_saturation;
+			Sm = max_saturation;
+			Sw = pow(Pb/Pc,lamda)*(Sm-Sr)+Sr;
+			//if (Pc <= 0 || Sw >= Sm) // is there better choices than this ??
+				//Sw = Sm;
+			Sw = MathLib::MRange (Sr, Sw, Sm);
+			break;
         default: 
             ERR("No valid capilary pressure vs water saturation model! "); 
             exit(0); 
@@ -140,6 +165,14 @@ struct PorousMedia : public IMedium
             // get the value from curve. 
             capp_sat_curve->eval_slope( Pc, dSwdPc, Sw);
             break;
+		case 6: // Brooks-corey
+			double lamda, Sm, Sr, v1;
+			lamda = exp_saturation;
+			Sr = res_saturation;
+			Sm = max_saturation;
+			v1 = pow((Pc/Pb),-lamda);
+			dSwdPc = (lamda*v1*(Sr - Sm)) / Pc; 
+			break;
         default: 
             ERR("Error in getSwbyPc: No valid capilary pressure vs water saturation model! "); 
             exit(0); 

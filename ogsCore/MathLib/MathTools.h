@@ -119,6 +119,11 @@ double erf(double x);
  */
 double erfc(double x);
 
+/* determine the interval */
+double MRange (double a, double b, double c);
+
 } // namespace
+
+
 
 #endif /* MATHTOOLS_H_ */

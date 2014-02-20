@@ -153,7 +153,16 @@ void convertPorousMediumProperty(const Ogs5FemData &ogs5fem, const CMediumProper
             // add it into the list
             pm.perm_saturation_curve.push_back( f_perm_sat ); 
         }
-
+		if (mmp.permeability_saturation_model[i] == 6) {  // Brooks-Corey WH
+            size_t perm_sat_model; 
+            perm_sat_model = (size_t)mmp.permeability_saturation_model[i]; 
+            pm.perm_saturation_model.push_back(perm_sat_model); 
+			pm.res_saturation = mmp.residual_saturation[i];
+			pm.max_saturation = mmp.maximum_saturation[i];
+			pm.exp_saturation = mmp.saturation_exponent[i];
+			//res_saturation = mmp.residual_saturation[i];
+			//max_saturation = mmp.maximum_saturation[i];
+		}
 	}
 
 	if (mmp.capillary_pressure_model == 0) {  
@@ -169,6 +178,12 @@ void convertPorousMediumProperty(const Ogs5FemData &ogs5fem, const CMediumProper
         MathLib::LinearInterpolation* xy_curve = new 
         MathLib::LinearInterpolation(vec_x, vec_y);
         pm.capp_sat_curve = new NumLib::FunctionLinear1D(xy_curve); 
+    }
+
+	if (mmp.capillary_pressure_model == 6) {  
+        pm.capp_sat_model = (size_t)mmp.capillary_pressure_model;
+        pm.Pb = mmp.capillary_pressure_values[0];
+
     }
 
     pm.geo_area = new NumLib::TXFunctionConstant(mmp.geo_area);

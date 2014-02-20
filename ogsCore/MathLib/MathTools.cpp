@@ -118,4 +118,15 @@ double erfc(double x)
     return 1.0 - erf(x);
 }
 
+double MRange(double a, double b, double c)
+{
+	if (b < a)
+		return a;
+	if (b > c)
+		return c;
+
+	return b;
+}
+
+
 } // namespace
