@@ -30,8 +30,9 @@ protected:
         const bool hasGravityEffect = true;
 
         MathLib::LocalMatrix mass_mat_coeff    = MathLib::LocalMatrix::Zero(1,1);  // coefficient of mass matrix
-        MathLib::LocalMatrix Pw                = MathLib::LocalMatrix::Zero(1,1);  // water pressure 
+        MathLib::LocalMatrix Sw2                = MathLib::LocalMatrix::Zero(1,1);  // water pressure 
         MathLib::LocalMatrix local_k_mu;                                           // permeability divided by viscosity
+		MathLib::LocalMatrix local_k_mu2;
         MathLib::LocalVector vec_g             = MathLib::LocalVector::Zero(_problem_coordinates.getDimension());
         double storage  = 0.0;  // storage term
         double Sw       = 0.0;  // saturation of water
@@ -39,7 +40,7 @@ protected:
         double drhow_dp = 0.0;  // derivative of water density over pressure
         double Pc       = 0.0;  // capillary pressure 
         double poro     = 0.0;  // porosity 
-        double dSwdPc   = 0.0;  // derivative of water saturation over cap pressure
+        double dPcdSw   = 0.0;  // derivative of water saturation over cap pressure
         double k        = 0.0;  // intrinsic permeability
         double k_rel    = 0.0;  // relative permeability
         double mu       = 0.0;  // dynamic viscosity of water
@@ -64,6 +65,7 @@ protected:
             MathLib::LocalMatrix &Np  = *fe->getBasisFunction(); // get basis function
             MathLib::LocalMatrix &dNp = *fe->getGradBasisFunction(); // get gradient basis function
             local_k_mu = MathLib::LocalMatrix::Identity(e.getDimension(), e.getDimension());
+			local_k_mu2 = MathLib::LocalMatrix::Identity(e.getDimension(), e.getDimension());
 	        pm->geo_area->eval(gp_pos, geo_area);
 			double fac = geo_area * fe->getDetJ() * q->getWeight(j);
 					
@@ -74,8 +76,8 @@ protected:
             pm->storage->eval(gp_pos, storage);
             // get primary variable water pressure pw
             // u1 is the current step primary variable. 
-            Pw = Np * u1; 
-			Pc = -1.0 * Pw(0,0);
+            Sw2 = Np * u1; 
+			Sw = 1.0 * Sw2(0,0);
             // density of water
             fluid->density->eval(gp_pos, rho_w);
             // get drhow_dp
@@ -101,22 +103,37 @@ protected:
 			//dSwdPc = -lamda*(pow(Pd/Pc,lamda))/Pc;
 
 			// get water saturation using pw
-            Sw = pm->getSwbyPc(Pc);
+           // Sw = pm->getSwbyPc(Pc);
 			// get dSwdPc
-            dSwdPc = pm->getdSwdPc( Pc , Sw);
+            dPcdSw = pm->getdPcdSw(Sw);
+
+			// write dSwdPc value into a text
+			/*
+			#include <fstream>
+			#include <iostream>
+			#include <sstream>//HWK
+			using namespace std;
+			std::fstream dpcdsw;
+			dpcdsw.open("dpcdsw.txt", std::ios::app);
+			dpcdsw << dPcdSw << "\n";
+			dpcdsw.close();
+			*/
+
 			// get k_rel
             k_rel = pm->getKrelbySw(Sw,0 );  // 0 stands for aq. phase
             // get intrinsic permeability
             pm->permeability->eval(gp_pos, k); 
 
 			// calculate mass matrix coefficient
-            mass_mat_coeff(0,0) = (storage * Sw) + (poro * Sw * drhow_dp) - (poro * dSwdPc); 
+            mass_mat_coeff(0,0) = (-storage * Sw * dPcdSw) - (poro * Sw * drhow_dp*dPcdSw) + (poro); 
             // multiply shape shape 
             fe->integrateWxN(j, mass_mat_coeff, localM);
 			//localM.setZero();
 			
             // calculate laplace matrix coefficient
-            local_k_mu *= k * k_rel / mu; 
+            local_k_mu *= -k * k_rel* dPcdSw / mu; 
+			//local_k_mu *=0;
+			local_k_mu2 *=k * k_rel / mu;
             // multiply dshape dshape
             fe->integrateDWxDN(j, local_k_mu, localK);
             // if includes gravity
@@ -125,7 +142,7 @@ protected:
                 // since no primary vairable involved
                 // directly assemble to the Right-Hand-Side
                 // F += dNp^T * K * g
-                localF.noalias() += fac * dNp.transpose() * local_k_mu  * rho_w *vec_g;
+                localF.noalias() += fac * dNp.transpose() * local_k_mu2  * rho_w *vec_g;
             } // end of if hasGravityEffect
 
         } // end of for GP

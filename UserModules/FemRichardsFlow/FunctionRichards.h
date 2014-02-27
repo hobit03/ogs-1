@@ -36,7 +36,7 @@ class FunctionRichards
 {
 public:
     enum In {};
-    enum Out { Pressure = 0, Saturation= 1 };
+    enum Out { Saturation = 0, Pressure = 1 };
 
     typedef T_DISCRETE_SYSTEM MyDiscreteSystem;
     typedef T_LINEAR_SOLVER MyLinearSolver;
@@ -76,8 +76,8 @@ public:
         // set default parameter name
         //ProcessLib::AbstractTransientProcess::setInputParameterName(Velocity, "Velocity");
 		this->resizeOutputParameter(2);
-        this->setOutputParameterName(Pressure, "Pressure");
 		this->setOutputParameterName(Saturation, "Saturation");
+        this->setOutputParameterName(Pressure, "Pressure");
     };
 
 	//DESTRUCTOR
@@ -108,7 +108,7 @@ protected:
 
     virtual void GetAndInsertPrimaryVariable(const size_t msh_id);
     virtual void GetAndInsertAdditionalOutputVariables(const size_t msh_id);
-	virtual void CalculateSaturationValuesForOutput(MyDiscreteSystem* dis);
+	virtual void CalculatePressureValuesForOutput(MyDiscreteSystem* dis);
 
 
 private:
@@ -122,8 +122,8 @@ private:
     NumLib::DiscreteDataConvergenceCheck _checker;
 	MyDiscreteSystem* dis;
 	/*nodal saturation values */ 
-    MyNodalFunctionScalar* _pressure_w; 
-	MyNodalFunctionScalar* _saturation_w;  
+	MyNodalFunctionScalar* _saturation_w;
+    MyNodalFunctionScalar* _pressure_w;   
 };
 
 #include "FunctionRichards.hpp"

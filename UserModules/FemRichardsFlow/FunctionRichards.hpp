@@ -50,9 +50,9 @@ bool FunctionRichards<T1,T2>::initialize(const BaseLib::Options &option)
     eqs->initialize(linear_assembler, r_assembler, j_eqs);
     _problem->setTimeSteppingFunction(*tim);
     // set up variable
-    typename MyProblemType::MyVariable* pressure_w_variable = _problem->addVariable("PRESSURE1");
+    typename MyProblemType::MyVariable* saturation_w_variable = _problem->addVariable("SATURATION1");
     FemVariableBuilder varBuilder;
-    varBuilder.doit("PRESSURE1", option, msh, femData->geo, femData->geo_unique_name, _feObjects, pressure_w_variable);
+    varBuilder.doit("SATURATION1", option, msh, femData->geo, femData->geo_unique_name, _feObjects, saturation_w_variable);
 
     // set up solution
     _solution = new MySolutionType(dis, _problem);
@@ -62,7 +62,7 @@ bool FunctionRichards<T1,T2>::initialize(const BaseLib::Options &option)
     _solution->getNonlinearSolver()->setOption(*optNum);
 	
 	// set initial output
-	CalculateSaturationValuesForOutput(dis);
+	CalculatePressureValuesForOutput(dis);
 	GetAndInsertPrimaryVariable(_problem->getDiscreteSystem()->getMesh()->getID());
     GetAndInsertAdditionalOutputVariables(msh_id);    
     return true;
@@ -77,9 +77,9 @@ void FunctionRichards<T1, T2>::initializeTimeStep(const NumLib::TimeStep &/*time
 template <class T1, class T2>
 void FunctionRichards<T1, T2>::updateOutputParameter(const NumLib::TimeStep &/*time*/)
 {
-	CalculateSaturationValuesForOutput(dis);
-    setOutput(Pressure, _solution->getCurrentSolution(0));
-	setOutput(Saturation, _saturation_w);
+	CalculatePressureValuesForOutput(dis);
+    setOutput(Saturation, _solution->getCurrentSolution(0));
+	setOutput(Pressure, _pressure_w);
 	
 }
 
@@ -96,7 +96,7 @@ template <class T1, class T2>
 void FunctionRichards<T1, T2>::GetAndInsertPrimaryVariable(const size_t msh_id)
 {
     Ogs6FemData* femData = Ogs6FemData::getInstance();
-    OutputVariableInfo var1(getOutputParameterName(Pressure), msh_id, OutputVariableInfo::Node, OutputVariableInfo::Real, 1, _solution->getCurrentSolution(0));
+    OutputVariableInfo var1(getOutputParameterName(Saturation), msh_id, OutputVariableInfo::Node, OutputVariableInfo::Real, 1, _solution->getCurrentSolution(0));
     femData->outController.setOutput(var1.name, var1); 
 };
 
@@ -104,34 +104,35 @@ template <class T1, class T2>
 void FunctionRichards<T1, T2>::GetAndInsertAdditionalOutputVariables(const size_t msh_id)
 {
     Ogs6FemData* femData = Ogs6FemData::getInstance();
-    OutputVariableInfo var2(getOutputParameterName(Saturation), msh_id, OutputVariableInfo::Node, OutputVariableInfo::Real, 1, _saturation_w);
+    OutputVariableInfo var2(getOutputParameterName(Pressure), msh_id, OutputVariableInfo::Node, OutputVariableInfo::Real, 1, _pressure_w);
     femData->outController.setOutput(var2.name, var2); 
 };
 
 template <class T1, class T2>
-void FunctionRichards<T1, T2>::CalculateSaturationValuesForOutput(MyDiscreteSystem* dis)
+void FunctionRichards<T1, T2>::CalculatePressureValuesForOutput(MyDiscreteSystem* dis)
 {
-	_pressure_w = new MyNodalFunctionScalar();
-	_pressure_w = _solution->getCurrentSolution(0);
-	_saturation_w = new MyNodalFunctionScalar(); 
-	_saturation_w->initialize(*dis, FemLib::PolynomialOrder::Linear, 0.0);
+	_saturation_w = new MyNodalFunctionScalar();
+	_saturation_w = _solution->getCurrentSolution(0);
+	_pressure_w = new MyNodalFunctionScalar(); 
+	_pressure_w->initialize(*dis, FemLib::PolynomialOrder::Linear, 0.0);
 
 			// get pointer to corresponding porous media class
 			//const size_t n_dim = e.getDimension();
 			//size_t mat_id = e.getGroupID();
 			//MaterialLib::PorousMedia* pm = Ogs6FemData::getInstance()->list_pm[mat_id];
-     double Pc = 0.0, Sw=0.0;
+     double Pc = 0.0, Sw=0.0, Pw = 0.0;
 	 size_t node_idx; 
-	 for (node_idx = _pressure_w->getDiscreteData()->getRangeBegin(); 
-			 node_idx < _pressure_w->getDiscreteData()->getRangeEnd(); 
+	 for (node_idx = _saturation_w->getDiscreteData()->getRangeBegin(); 
+			 node_idx < _saturation_w->getDiscreteData()->getRangeEnd(); 
 			 node_idx++ )
 	 {
 	 MaterialLib::PorousMedia* pm = Ogs6FemData::getInstance()->list_pm[0];
-	 Pc= -1.0 * _pressure_w->getValue(node_idx);
-	 Sw= pm->getSwbyPc(Pc);
+	 Sw= 1.0 * _saturation_w->getValue(node_idx);
+	 Pc= pm->getPcbySw(Sw);
+	 Pw = -Pc;
 	 //Sw = (-0.228*log(Pc) )+ 2.7322;
  	 // if (Sw > 1.0) Sw = 1.0;
 	 //if (Sw < 0.25) Sw = 0.25;
-	 _saturation_w->setValue(node_idx,Sw);	
+	 _pressure_w->setValue(node_idx,Pw);	
 	 }
 };

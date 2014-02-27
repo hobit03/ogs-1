@@ -156,6 +156,35 @@ struct PorousMedia : public IMedium
         return Sw; 
     }
 
+	virtual double getPcbySw(double Sw)
+    {	
+        double Pc = 0.0;
+
+        switch ( this->capp_sat_model )
+        {
+        case 0:  // curve value
+            // get the value from curve. 
+            capp_sat_curve->eval( Pc, Sw );
+            break;
+		case 6: // Brooks-corey
+			double lamda, Sm, Sr, Se, epsilon;
+			lamda = exp_saturation;
+			Sr = res_saturation;
+			Sm = max_saturation;
+			epsilon = std::numeric_limits<double>::epsilon();
+			Sw = MathLib::MRange (Sr+epsilon, Sw, Sm);
+			Se = (Sm-Sr)/(Sw-Sr);
+			Pc = Pb*pow(Se,1/lamda);
+			//if (Pc < Pb) Pc = Pb;
+			break;
+        default: 
+            ERR("No valid capilary pressure vs water saturation model! "); 
+            exit(0); 
+            break;
+        } // end of switch capp_sat_model
+        return Pc; 
+    }
+
 	virtual double PorousMedia::getdSwdPc (double Pc, double Sw)
     {
         double dSwdPc = 0.0;
@@ -183,7 +212,30 @@ struct PorousMedia : public IMedium
         return dSwdPc; 
     }
 
-
+	virtual double PorousMedia::getdPcdSw (double Sw)
+    {
+        double dPcdSw = 0.0, lim, epsilon;
+		epsilon = std::numeric_limits<double>::epsilon();
+        switch ( this->capp_sat_model )
+        {
+   		case 6: // Brooks-corey
+			double lamda, Sm, Sr, v1;
+			lamda = exp_saturation;
+			Sr = res_saturation;
+			Sm = max_saturation;
+			Sw = MathLib::MRange (Sr+epsilon, Sw, Sm);
+		    v1 = pow(((Sw-Sr) / (Sm-Sr)),(-1.0/lamda));
+			dPcdSw = (Pb*v1) / (lamda*(Sr-Sw));
+			break;
+        default: 
+            ERR("Error in getSwbyPc: No valid capilary pressure vs water saturation model! "); 
+            exit(0); 
+            break;
+        } // end of switch capp_sat_model
+		lim = -1.0/epsilon;
+		if(dPcdSw < lim) dPcdSw = lim;
+        return dPcdSw; 
+    }
 };
 
 } //end
