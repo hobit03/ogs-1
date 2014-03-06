@@ -28,6 +28,8 @@ struct FiniteElementType
         QUAD9,
         TET4,
         TET10,
+        HEX8,
+        HEX20,
         INVALID
     };
 };
