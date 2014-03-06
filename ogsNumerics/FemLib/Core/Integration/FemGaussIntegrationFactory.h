@@ -19,6 +19,7 @@
 #include "FemIntegrationGaussQuad.h"
 #include "FemIntegrationGaussTriangle.h"
 #include "FemIntegrationGaussTetra.h"
+#include "FemIntegrationGaussHex.h"
 
 namespace FemLib
 {
@@ -35,6 +36,8 @@ public:
                 return new FemIntegrationGaussQuad();
             case MeshLib::ElementShape::TETRAHEDRON:
                 return new FemIntegrationGaussTetra();
+            case MeshLib::ElementShape::HEXAHEDRON:
+                return new FemIntegrationGaussHex();
             default:
                 return 0;
         }

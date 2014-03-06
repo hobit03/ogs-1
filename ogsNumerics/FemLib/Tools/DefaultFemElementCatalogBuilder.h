@@ -38,6 +38,8 @@ public:
         feCatalog.registerFeType<TRI6>(FiniteElementType::TRI6);
         feCatalog.registerFeType<TET4>(FiniteElementType::TET4);
         feCatalog.registerFeType<TET10>(FiniteElementType::TET10);
+        feCatalog.registerFeType<HEX8>(FiniteElementType::HEX8);
+        feCatalog.registerFeType<HEX20>(FiniteElementType::HEX20);
     }
 };
 

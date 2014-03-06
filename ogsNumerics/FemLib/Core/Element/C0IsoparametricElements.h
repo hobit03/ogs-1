@@ -27,5 +27,7 @@ typedef TemplateIsoparametric<2, 3, 1, FemShapeTriangle3, FemIntegrationGaussTri
 typedef TemplateIsoparametric<2, 6, 2, FemShapeTriangle6, FemIntegrationGaussTriangle, FeExtrapolationGaussLinear> TRI6;
 typedef TemplateIsoparametric<3, 4, 1, FemShapeTetra4, FemIntegrationGaussTetra, FeExtrapolationGaussLinear> TET4;
 typedef TemplateIsoparametric<3, 10, 2, FemShapeTetra10, FemIntegrationGaussTetra, FeExtrapolationGaussLinear> TET10;
+typedef TemplateIsoparametric<3, 8, 1, FemShapeHex8, FemIntegrationGaussHex, FeExtrapolationGaussLinear> HEX8;
+typedef TemplateIsoparametric<3, 20, 2, FemShapeHex20, FemIntegrationGaussHex, FeExtrapolationGaussLinear> HEX20;
 
 }

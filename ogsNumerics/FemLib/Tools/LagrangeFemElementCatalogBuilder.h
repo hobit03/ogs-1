@@ -39,6 +39,8 @@ public:
         feCatalog.registerFeType<TRI6>(FiniteElementType::TRI6);
         feCatalog.registerFeType<TET4>(FiniteElementType::TET4);
         feCatalog.registerFeType<TET10>(FiniteElementType::TET10);
+        feCatalog.registerFeType<HEX8>(FiniteElementType::HEX8);
+        feCatalog.registerFeType<HEX20>(FiniteElementType::HEX20);
 
         shape2fetype.addFeType(MeshLib::ElementShape::LINE, 1, FiniteElementType::LINE2);
         shape2fetype.addFeType(MeshLib::ElementShape::LINE, 2, FiniteElementType::LINE3);
@@ -48,6 +50,8 @@ public:
         shape2fetype.addFeType(MeshLib::ElementShape::TRIANGLE, 2, FiniteElementType::TRI6);
         shape2fetype.addFeType(MeshLib::ElementShape::TETRAHEDRON, 1, FiniteElementType::TET4);
         shape2fetype.addFeType(MeshLib::ElementShape::TETRAHEDRON, 2, FiniteElementType::TET10);
+        shape2fetype.addFeType(MeshLib::ElementShape::HEXAHEDRON, 1, FiniteElementType::HEX8);
+        shape2fetype.addFeType(MeshLib::ElementShape::HEXAHEDRON, 2, FiniteElementType::HEX20);
     }
 };
 
