@@ -41,6 +41,7 @@ struct PorousMedia : public IMedium
     double max_saturation;      
     double exp_saturation;
 	double Pb;
+	double saturation_exponent;
     NumLib::FunctionLinear1D* capp_sat_curve; 
     std::vector<size_t> perm_saturation_model;    
     std::vector<NumLib::FunctionLinear1D*> perm_saturation_curve; 
@@ -91,7 +92,8 @@ struct PorousMedia : public IMedium
 
 	virtual double getKrelbySw(const double Sw/*wetting saturation*/, size_t idx_phase)
     {
-        double kr = 0.0; 
+        double kr = 0.0, Sr, Sm, ex, Sw2, se, m, epsilon;
+		epsilon = std::numeric_limits<double>::epsilon();
         //bool phase_shift = false;
         size_t model; 
         model = this->perm_saturation_model[idx_phase];
@@ -108,14 +110,27 @@ struct PorousMedia : public IMedium
             if( kr < minimum_relative_permeability )
 	        kr = minimum_relative_permeability;
             break;
-		case 6:
+		case 4: // Van Genuchten
 			{
-			double Sr, Sm, ex, Sw2, epsilon;
 			Sr = res_saturation;
 			Sm = max_saturation;
 			ex = (2+3*exp_saturation)/exp_saturation;
-			epsilon = std::numeric_limits<double>::epsilon();
-			Sw2 = MathLib::MRange(Sr+epsilon, Sw, Sm-epsilon);
+			Sw2 = MathLib::MRange(Sr+epsilon, Sw, Sm);
+			se = (Sw2-Sr)/(Sm-Sr);
+			m   = saturation_exponent;
+			kr = sqrt(se) * pow(1.0-pow(1.0-pow(se,1.0/m),m),2);
+			 if( kr < minimum_relative_permeability )
+	        kr = minimum_relative_permeability;
+			}
+			break;
+		case 6: // Brooks-Corey
+			{
+			//double Sr, Sm, ex, Sw2, epsilon;
+			Sr = res_saturation;
+			Sm = max_saturation;
+			ex = (2+3*exp_saturation)/exp_saturation;
+			//epsilon = std::numeric_limits<double>::epsilon();
+			Sw2 = MathLib::MRange(Sr+epsilon, Sw, Sm); // because Sw is defined and used as const double in case 0, Sw2 as double is needed, WH
 			kr = pow((Sw2-Sr)/(Sm-Sr),ex);
 			 if( kr < minimum_relative_permeability )
 	        kr = minimum_relative_permeability;
@@ -128,25 +143,37 @@ struct PorousMedia : public IMedium
     /**
     * return the water saturation value by capillary pressure
     */
-    virtual double getSwbyPc(double Pc)
+    virtual double getSwbyPc(double Pc, double Density)
     {	
-        double Sw = 0.0;
-
+        double Sw = 0.0, lamda, Sm, Sr, epsilon, m, se;
+		epsilon = std::numeric_limits<double>::epsilon();
         switch ( this->capp_sat_model )
         {
         case 0:  // curve value
             // get the value from curve. 
             capp_sat_curve->eval( Pc, Sw );
             break;
+		case 4: // Van Genuchten
+			lamda = exp_saturation;
+			Sr = res_saturation;
+			Sm = max_saturation;
+			Pb = Density*9.81/Pb;
+			m   = saturation_exponent;
+			if(Pc < 0.0) Pc = 0.0;
+			se = pow(Pc/Pb, 1.0/(1.0-m)) + 1.0;
+			se = pow(se,-m);
+			Sw = se*(Sm-Sr) + Sr;			
+			Sw = MathLib::MRange (Sr+epsilon, Sw, Sm);
+			break;
 		case 6: // Brooks-corey
-			double lamda, Sm, Sr, epsilon;
+			//double lamda, Sm, Sr, epsilon;
 			lamda = exp_saturation;
 			Sr = res_saturation;
 			Sm = max_saturation;
 			if (Pc < Pb) Pc = Pb;
 			Sw = pow(Pb/Pc,lamda)*(Sm-Sr)+Sr;
-			epsilon = std::numeric_limits<double>::epsilon();
-			Sw = MathLib::MRange (Sr+epsilon, Sw, Sm-epsilon);
+			//epsilon = std::numeric_limits<double>::epsilon();
+			Sw = MathLib::MRange (Sr+epsilon, Sw, Sm);
 			break;
         default: 
             ERR("No valid capilary pressure vs water saturation model! "); 
@@ -156,9 +183,10 @@ struct PorousMedia : public IMedium
         return Sw; 
     }
 
-	virtual double PorousMedia::getdSwdPc (double Pc, double Sw)
+	virtual double PorousMedia::getdSwdPc (double Pc, double Sw, double Density)
     {
-        double dSwdPc = 0.0;
+        double dSwdPc = 0.0, lamda, Sm, Sr, v1, v2, m, epsilon;
+		epsilon = std::numeric_limits<double>::epsilon();
 
         switch ( this->capp_sat_model )
         {
@@ -166,8 +194,18 @@ struct PorousMedia : public IMedium
             // get the value from curve. 
             capp_sat_curve->eval_slope( Pc, dSwdPc, Sw);
             break;
+		case 4: // Brooks-corey
+			lamda = exp_saturation;
+			Sr = res_saturation;
+			Sm = max_saturation;
+			Pb = Density*9.81/Pb;
+			m = saturation_exponent;
+			if(Pc < 0.0) Pc = epsilon;
+			v1 = pow((Pc/Pb),(1.0/(1.0-m)));
+			v2 = pow((1.0+v1),(-1.0-m));
+			dSwdPc = (m*v1*v2*(Sm-Sr)) / ((m-1.0)*Pc);
+			break;
 		case 6: // Brooks-corey
-			double lamda, Sm, Sr, v1;
 			lamda = exp_saturation;
 			Sr = res_saturation;
 			Sm = max_saturation;

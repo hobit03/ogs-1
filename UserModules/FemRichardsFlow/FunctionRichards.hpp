@@ -120,7 +120,7 @@ void FunctionRichards<T1, T2>::CalculateSaturationValuesForOutput(MyDiscreteSyst
 			//const size_t n_dim = e.getDimension();
 			//size_t mat_id = e.getGroupID();
 			//MaterialLib::PorousMedia* pm = Ogs6FemData::getInstance()->list_pm[mat_id];
-     double Pc = 0.0, Sw=0.0;
+     double Pc = 0.0, Sw=0.0, rho_w = 1000; // hard coded for rho_w, need to be improved WH
 	 size_t node_idx; 
 	 for (node_idx = _pressure_w->getDiscreteData()->getRangeBegin(); 
 			 node_idx < _pressure_w->getDiscreteData()->getRangeEnd(); 
@@ -128,7 +128,7 @@ void FunctionRichards<T1, T2>::CalculateSaturationValuesForOutput(MyDiscreteSyst
 	 {
 	 MaterialLib::PorousMedia* pm = Ogs6FemData::getInstance()->list_pm[0];
 	 Pc= -1.0 * _pressure_w->getValue(node_idx);
-	 Sw= pm->getSwbyPc(Pc);
+	 Sw= pm->getSwbyPc(Pc, rho_w);
 	 //Sw = (-0.228*log(Pc) )+ 2.7322;
  	 // if (Sw > 1.0) Sw = 1.0;
 	 //if (Sw < 0.25) Sw = 0.25;

@@ -49,7 +49,7 @@ protected:
 		//TODO: must be checked if this has an effect
         if (hasGravityEffect) {
 	        vec_g = MathLib::LocalVector::Zero(_problem_coordinates.getDimension());
-            vec_g[_problem_coordinates.getIndexOfY()] = -9.81;
+            vec_g[_problem_coordinates.getIndexOfZ()] = -9.81;
         }
 
 
@@ -101,9 +101,22 @@ protected:
 			//dSwdPc = -lamda*(pow(Pd/Pc,lamda))/Pc;
 
 			// get water saturation using pw
-            Sw = pm->getSwbyPc(Pc);
+            Sw = pm->getSwbyPc(Pc, rho_w);
 			// get dSwdPc
-            dSwdPc = pm->getdSwdPc( Pc , Sw);
+            dSwdPc = pm->getdSwdPc( Pc , Sw, rho_w);
+
+			// write dSwdPc value into a text
+			/*
+			#include <fstream>
+			#include <iostream>
+			#include <sstream>//HWK
+			using namespace std;
+			std::fstream dswdpc;
+			dswdpc.open("dpcdsw.txt", std::ios::app);
+			dswdpc << dSwdPc << "\n";
+			dswdpc.close();
+			*/
+
 			// get k_rel
             k_rel = pm->getKrelbySw(Sw,0 );  // 0 stands for aq. phase
             // get intrinsic permeability
