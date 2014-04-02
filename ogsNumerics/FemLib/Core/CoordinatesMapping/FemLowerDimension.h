@@ -61,7 +61,7 @@ public:
     /// initialize element
     virtual void initialize(MeshLib::IElement &ele)
     {
-        assert (ele.getDimension() < _msh_dim);
+//        assert (ele.getDimension() < _msh_dim);
 
         _ele_dim = ele.getDimension();
         FemNaturalCoordinates::initialize(ele);

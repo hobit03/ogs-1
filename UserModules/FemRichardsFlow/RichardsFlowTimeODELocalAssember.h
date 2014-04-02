@@ -27,7 +27,7 @@ protected:
         MaterialLib::Fluid* fluid = Ogs6FemData::getInstance()->list_fluid[0];
         // whether include gravity
         // const bool hasGravityEffect = _problem_coordinates.hasZ();
-        const bool hasGravityEffect = true;
+		const bool hasGravityEffect = _problem_coordinates.hasZ();
 
         MathLib::LocalMatrix mass_mat_coeff    = MathLib::LocalMatrix::Zero(1,1);  // coefficient of mass matrix
         MathLib::LocalMatrix Pw                = MathLib::LocalMatrix::Zero(1,1);  // water pressure 

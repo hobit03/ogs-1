@@ -39,7 +39,7 @@ struct PorousMedia : public IMedium
     NumLib::ITXFunction* dispersivity_trans; 
 	double res_saturation; 
     double max_saturation;      
-    double exp_saturation;
+    //double exp_saturation;
 	double Pb;
 	double saturation_exponent;
     NumLib::FunctionLinear1D* capp_sat_curve; 
@@ -114,7 +114,6 @@ struct PorousMedia : public IMedium
 			{
 			Sr = res_saturation;
 			Sm = max_saturation;
-			ex = (2+3*exp_saturation)/exp_saturation;
 			Sw2 = MathLib::MRange(Sr+epsilon, Sw, Sm);
 			se = (Sw2-Sr)/(Sm-Sr);
 			m   = saturation_exponent;
@@ -128,7 +127,7 @@ struct PorousMedia : public IMedium
 			//double Sr, Sm, ex, Sw2, epsilon;
 			Sr = res_saturation;
 			Sm = max_saturation;
-			ex = (2+3*exp_saturation)/exp_saturation;
+			ex = (2+3*saturation_exponent)/saturation_exponent;
 			//epsilon = std::numeric_limits<double>::epsilon();
 			Sw2 = MathLib::MRange(Sr+epsilon, Sw, Sm); // because Sw is defined and used as const double in case 0, Sw2 as double is needed, WH
 			kr = pow((Sw2-Sr)/(Sm-Sr),ex);
@@ -145,7 +144,7 @@ struct PorousMedia : public IMedium
     */
     virtual double getSwbyPc(double Pc, double Density)
     {	
-        double Sw = 0.0, lamda, Sm, Sr, epsilon, m, se;
+        double Sw = 0.0, lamda, Sm, Sr, epsilon, m, se, Pb1;
 		epsilon = std::numeric_limits<double>::epsilon();
         switch ( this->capp_sat_model )
         {
@@ -154,20 +153,20 @@ struct PorousMedia : public IMedium
             capp_sat_curve->eval( Pc, Sw );
             break;
 		case 4: // Van Genuchten
-			lamda = exp_saturation;
+			lamda = saturation_exponent;
 			Sr = res_saturation;
 			Sm = max_saturation;
-			Pb = Density*9.81/Pb;
+			Pb1 = Density*9.81/Pb;
 			m   = saturation_exponent;
 			if(Pc < 0.0) Pc = 0.0;
-			se = pow(Pc/Pb, 1.0/(1.0-m)) + 1.0;
+			se = pow(Pc/Pb1, 1.0/(1.0-m)) + 1.0;
 			se = pow(se,-m);
 			Sw = se*(Sm-Sr) + Sr;			
 			Sw = MathLib::MRange (Sr+epsilon, Sw, Sm);
 			break;
 		case 6: // Brooks-corey
 			//double lamda, Sm, Sr, epsilon;
-			lamda = exp_saturation;
+			lamda = saturation_exponent;
 			Sr = res_saturation;
 			Sm = max_saturation;
 			if (Pc < Pb) Pc = Pb;
@@ -185,7 +184,7 @@ struct PorousMedia : public IMedium
 
 	virtual double PorousMedia::getdSwdPc (double Pc, double Sw, double Density)
     {
-        double dSwdPc = 0.0, lamda, Sm, Sr, v1, v2, m, epsilon;
+        double dSwdPc = 0.0, lamda, Sm, Sr, v1, v2, m, epsilon, Pb1;
 		epsilon = std::numeric_limits<double>::epsilon();
 
         switch ( this->capp_sat_model )
@@ -194,19 +193,18 @@ struct PorousMedia : public IMedium
             // get the value from curve. 
             capp_sat_curve->eval_slope( Pc, dSwdPc, Sw);
             break;
-		case 4: // Brooks-corey
-			lamda = exp_saturation;
+		case 4: // Van Genuchten
 			Sr = res_saturation;
 			Sm = max_saturation;
-			Pb = Density*9.81/Pb;
+			Pb1 = Density*9.81/Pb;
 			m = saturation_exponent;
 			if(Pc < 0.0) Pc = epsilon;
-			v1 = pow((Pc/Pb),(1.0/(1.0-m)));
+			v1 = pow((Pc/Pb1),(1.0/(1.0-m)));
 			v2 = pow((1.0+v1),(-1.0-m));
 			dSwdPc = (m*v1*v2*(Sm-Sr)) / ((m-1.0)*Pc);
 			break;
 		case 6: // Brooks-corey
-			lamda = exp_saturation;
+			lamda = saturation_exponent;
 			Sr = res_saturation;
 			Sm = max_saturation;
 			v1 = pow((Pc/Pb),-lamda);

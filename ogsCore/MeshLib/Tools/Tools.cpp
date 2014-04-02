@@ -291,8 +291,8 @@ void setMeshElementCoordinatesMapping(IMesh &msh)
         if (e->getMappedCoordinates()==NULL) {
             MeshLib::IElementCoordinatesMapping* ele_map;
             size_t ele_dim = e->getDimension();
-            assert(msh_dim >= ele_dim);
-            if (msh_dim == ele_dim) {
+            //assert(msh_dim >= ele_dim);
+            if (msh_dim == ele_dim && !(msh_dim<3 && msh.getGeometricProperty()->getCoordinateSystem().hasZ())) {
                 ele_map = new ElementCoordinatesInvariant(&msh, e);
             } else {
                 ele_map = new ElementCoordinatesMappingLocal(&msh, *e, msh.getGeometricProperty()->getCoordinateSystem());

@@ -35,6 +35,7 @@ bool FunctionRichards<T1,T2>::initialize(const BaseLib::Options &option)
 
     //mesh and FE objects
     MeshLib::IMesh* msh = femData->list_mesh[msh_id];
+    MeshLib::setMeshElementCoordinatesMapping(*msh);
     //MyDiscreteSystem* dis = 0;
     dis = DiscreteLib::DiscreteSystemContainerPerMesh::getInstance()->createObject<MyDiscreteSystem>(msh);
     _feObjects = new FemLib::LagrangeFeObjectContainer(msh);

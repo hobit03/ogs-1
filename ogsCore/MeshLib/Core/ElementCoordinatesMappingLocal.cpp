@@ -35,7 +35,10 @@ ElementCoordinatesMappingLocal::ElementCoordinatesMappingLocal(const IMesh* msh,
     if (e.getDimension() < coordinate_system.getDimension()) {
         translate(_point_vec);
         rotate(e, coordinate_system, _point_vec);
-    }
+    } else {
+		_matR2original = MathLib::LocalMatrix::Identity(e.getDimension(), e.getDimension());
+		_matR2local = MathLib::LocalMatrix::Identity(e.getDimension(), e.getDimension());
+	}
 };
 
 void ElementCoordinatesMappingLocal::translate(std::vector<GeoLib::Point> &vec_pt)

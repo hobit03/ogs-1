@@ -53,7 +53,7 @@ public:
     : TemplateFeBase<N_VARIABLES>(msh)
     {
         const size_t mesh_dim = msh->getDimension();
-        if (mesh_dim == N_ELE_DIM)
+		if (mesh_dim == N_ELE_DIM && !(mesh_dim<3 && msh->getGeometricProperty()->getCoordinateSystem().hasZ()))
             _mapping = new FemNaturalCoordinates(new T_SHAPE());
         else
             _mapping = new FemLowerDimension(new T_SHAPE(), mesh_dim);

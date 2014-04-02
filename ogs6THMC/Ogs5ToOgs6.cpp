@@ -159,9 +159,18 @@ void convertPorousMediumProperty(const Ogs5FemData &ogs5fem, const CMediumProper
             pm.perm_saturation_model.push_back(perm_sat_model); 
 			pm.res_saturation = mmp.residual_saturation[i];
 			pm.max_saturation = mmp.maximum_saturation[i];
-			pm.exp_saturation = mmp.saturation_exponent[i];
+			pm.saturation_exponent = mmp.saturation_exponent[i];
 			//res_saturation = mmp.residual_saturation[i];
 			//max_saturation = mmp.maximum_saturation[i];
+		}
+		if (mmp.permeability_saturation_model[i] == 4) {  // Van Genuchten WH
+            size_t perm_sat_model; 
+            perm_sat_model = (size_t)mmp.permeability_saturation_model[i]; 
+            pm.perm_saturation_model.push_back(perm_sat_model); 
+			pm.res_saturation = mmp.residual_saturation[i];
+			pm.max_saturation = mmp.maximum_saturation[i];
+			pm.saturation_exponent = mmp.saturation_exponent[i];
+
 		}
 	}
 
@@ -184,6 +193,11 @@ void convertPorousMediumProperty(const Ogs5FemData &ogs5fem, const CMediumProper
         pm.capp_sat_model = (size_t)mmp.capillary_pressure_model;
         pm.Pb = mmp.capillary_pressure_values[0];
 
+    }
+
+	if (mmp.capillary_pressure_model == 4) {  
+        pm.capp_sat_model = (size_t)mmp.capillary_pressure_model;
+        pm.Pb = mmp.capillary_pressure_values[0];
     }
 
     pm.geo_area = new NumLib::TXFunctionConstant(mmp.geo_area);
